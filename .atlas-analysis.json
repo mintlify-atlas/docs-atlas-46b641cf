@@ -1,0 +1,124 @@
+{
+  "projectType": "saas",
+  "projectName": "Casa de Historias",
+  "projectDescription": "Mobile app for preserving and sharing bilingual legends from the Sierra de Zongolica in Spanish and Nahuatl",
+  "theme": "almond",
+  "primaryColor": "#D97706",
+  "lightColor": "#FCD34D",
+  "darkColor": "#92400E",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "introduction",
+              "features"
+            ]
+          },
+          {
+            "group": "Getting Started",
+            "pages": [
+              "getting-started/installation",
+              "getting-started/setup",
+              "getting-started/quickstart"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "User Guide",
+        "groups": [
+          {
+            "group": "Core Features",
+            "pages": [
+              "user-guide/authentication",
+              "user-guide/browsing-stories",
+              "user-guide/creating-stories",
+              "user-guide/audio-playback",
+              "user-guide/favorites"
+            ]
+          },
+          {
+            "group": "Discovery",
+            "pages": [
+              "user-guide/discover-mode",
+              "user-guide/search",
+              "user-guide/map-view",
+              "user-guide/dictionary"
+            ]
+          },
+          {
+            "group": "Account",
+            "pages": [
+              "user-guide/profile",
+              "user-guide/my-stories",
+              "user-guide/settings"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "development/architecture",
+              "development/tech-stack",
+              "development/data-model"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "development/ui-components",
+              "development/navigation",
+              "development/authentication",
+              "development/data-layer"
+            ]
+          },
+          {
+            "group": "Firebase",
+            "pages": [
+              "development/firebase-setup",
+              "development/firestore",
+              "development/storage"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "development/contributing",
+              "development/code-style"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Bilingual storytelling in Spanish and Nahuatl",
+    "Audio narration with media playback controls",
+    "Interactive map showing story locations",
+    "Firebase-based authentication and cloud storage",
+    "Offline-capable with Room database",
+    "Search and discovery features",
+    "Favorites and personal story collections",
+    "Community-based story organization"
+  ],
+  "publicApiSurface": [
+    "Story (data class with bilingual content)",
+    "StoryRepository (getAllStories, getStoryById, addStory, updateStory, deleteStory)",
+    "AuthRepository (signIn, signUp, signOut, currentUser)",
+    "FirestoreRepository (CRUD operations, search, favorites)",
+    "StorageRepository (uploadImage, uploadAudio, deleteFile)",
+    "StoryViewModel (stories flow, selectedStory, loadStoryById)",
+    "AuthViewModel (authState, signIn, signUp, signOut)",
+    "FavoritesViewModel (favorites flow, addToFavorites, removeFromFavorites)",
+    "SearchViewModel (searchResults, search)",
+    "AddStoryViewModel (addStory with validation)"
+  ]
+}
