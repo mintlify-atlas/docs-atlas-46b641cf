@@ -1,0 +1,280 @@
+---
+title: "Firebase Setup"
+description: "Firebase project configuration, google-services.json, and required services"
+---
+
+# Firebase Setup
+
+Casa de Historias uses Firebase as its backend platform. This guide covers the setup process.
+
+## Firebase Services Used
+
+The app uses the following Firebase services:
+
+- **Firebase Authentication** - User authentication with email/password
+- **Cloud Firestore** - NoSQL database for stories and user profiles
+- **Firebase Storage** - Cloud storage for images and audio files
+- **Firebase Analytics** - Usage analytics and crash reporting
+
+## Gradle Configuration
+
+### Project-level build.gradle.kts
+
+Add the Google Services plugin:
+
+```kotlin
+plugins {
+    alias(libs.plugins.google.services)
+}
+```
+
+See `app/build.gradle.kts:7` for plugin configuration.
+
+### App-level Dependencies
+
+```kotlin
+dependencies {
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.storage)
+}
+```
+
+See `app/build.gradle.kts:59` for Firebase dependencies.
+
+The Firebase BoM (Bill of Materials) ensures all Firebase libraries use compatible versions.
+
+## google-services.json
+
+The `google-services.json` file contains Firebase project configuration.
+
+### File Location
+
+```
+app/
+  src/
+  build.gradle.kts
+  google-services.json  ← Place file here
+```
+
+### Obtaining the File
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Select your project (or create a new one)
+3. Click the gear icon → **Project settings**
+4. Scroll to **Your apps** section
+5. Click **Add app** → **Android**
+6. Register app with package name: `com.example.casadehistorias`
+7. Download `google-services.json`
+8. Place in `app/` directory
+
+<Warning>
+Never commit `google-services.json` to public repositories. Add it to `.gitignore` if the repository will be public.
+</Warning>
+
+## Firebase Project Setup
+
+### 1. Create Firebase Project
+
+1. Visit [Firebase Console](https://console.firebase.google.com/)
+2. Click **Add project**
+3. Enter project name (e.g., "Casa de Historias")
+4. Enable/disable Google Analytics (recommended: enable)
+5. Click **Create project**
+
+### 2. Add Android App
+
+1. In project overview, click **Android** icon
+2. Enter package name: `com.example.casadehistorias`
+3. App nickname: "Casa de Historias"
+4. Debug signing certificate (optional, for development)
+5. Click **Register app**
+6. Download `google-services.json`
+
+### 3. Enable Authentication
+
+1. In Firebase Console, go to **Authentication**
+2. Click **Get started**
+3. Go to **Sign-in method** tab
+4. Enable **Email/Password** provider
+5. Click **Save**
+
+### 4. Create Firestore Database
+
+1. Go to **Firestore Database**
+2. Click **Create database**
+3. Choose **Start in production mode** (or test mode for development)
+4. Select Cloud Firestore location (choose closest to your users)
+5. Click **Enable**
+
+### 5. Set Up Storage
+
+1. Go to **Storage**
+2. Click **Get started**
+3. Review security rules
+4. Click **Done**
+
+### 6. Enable Analytics (Optional)
+
+1. Go to **Analytics**
+2. Click **Enable**
+3. Accept terms and conditions
+
+Analytics is automatically configured if enabled during project creation.
+
+## Dependency Injection
+
+Firebase services are provided via Hilt:
+
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object FirebaseModule {
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+
+    @Provides
+    @Singleton
+    fun provideFirebaseFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
+
+    @Provides
+    @Singleton
+    fun provideFirebaseStorage(): FirebaseStorage = FirebaseStorage.getInstance()
+}
+```
+
+See `di/FirebaseModule.kt:14` for the Hilt module.
+
+## Firestore Security Rules
+
+Initial security rules for development:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Stories collection
+    match /stories/{storyId} {
+      allow read: if resource.data.published == true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth.uid == resource.data.authorId;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth.uid == userId;
+    }
+  }
+}
+```
+
+These rules:
+- Allow anyone to read published stories
+- Require authentication to create stories
+- Only allow authors to update/delete their stories
+- Allow anyone to read user profiles (for narrator info)
+- Only allow users to update their own profile
+
+## Storage Security Rules
+
+Initial storage rules:
+
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /stories/{storyId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
+```
+
+These rules:
+- Allow anyone to read uploaded files
+- Require authentication to upload files
+
+<Note>
+For production, implement more restrictive rules including file size limits, content type validation, and ownership checks.
+</Note>
+
+## Firebase Initialization
+
+Firebase is automatically initialized when the app starts. No manual initialization code is needed thanks to the `google-services.json` configuration.
+
+The `@HiltAndroidApp` annotation on the Application class ensures Firebase is ready before any components are created:
+
+```kotlin
+@HiltAndroidApp
+class CasaDeHistoriasApp : Application()
+```
+
+See `CasaDeHistoriasApp.kt:6`.
+
+## Verifying Setup
+
+To verify Firebase is configured correctly:
+
+1. Run the app
+2. Check Logcat for Firebase initialization messages
+3. Try creating an account (should appear in Firebase Console → Authentication)
+4. Check Firestore for user document creation
+
+## Development vs Production
+
+### Development Setup
+
+- Use a separate Firebase project for development
+- Enable Firestore in **test mode** for easier debugging
+- Use Storage in **test mode**
+- Enable Firebase Emulator Suite for local testing (optional)
+
+### Production Setup
+
+- Use production Firebase project
+- Strict Firestore and Storage security rules
+- Enable App Check for additional security
+- Monitor usage and set budget alerts
+
+## Troubleshooting
+
+<Accordion title="google-services.json not found">
+  Ensure the file is placed in the `app/` directory, not in `app/src/`.
+  
+  Run **File → Sync Project with Gradle Files** in Android Studio.
+</Accordion>
+
+<Accordion title="Firebase Auth not working">
+  Check that Email/Password is enabled in Firebase Console → Authentication → Sign-in method.
+  
+  Verify `google-services.json` contains the correct project configuration.
+</Accordion>
+
+<Accordion title="Firestore permission denied">
+  Check security rules in Firebase Console → Firestore Database → Rules.
+  
+  Ensure user is authenticated before writing data.
+</Accordion>
+
+<Accordion title="Build fails with duplicate classes">
+  Make sure you're using the Firebase BoM (Bill of Materials) and not specifying versions for individual Firebase libraries.
+  
+  ```kotlin
+  implementation(platform(libs.firebase.bom))  // Use BoM
+  implementation(libs.firebase.auth)  // No version specified
+  ```
+</Accordion>
+
+## Next Steps
+
+After Firebase is set up:
+
+1. Configure Firestore data structure (see [Firestore documentation](/development/firestore))
+2. Set up Storage buckets (see [Storage documentation](/development/storage))
+3. Implement authentication flows (see [Authentication documentation](/development/authentication))

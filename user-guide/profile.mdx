@@ -1,0 +1,223 @@
+---
+title: "User Profile"
+description: "View and manage your account information"
+---
+
+## Overview
+
+Your user profile (`ProfileScreen`) displays your account information, authored stories, and provides access to settings and account management.
+
+<Note>
+You must be logged in to access your profile. The profile is accessible from the bottom navigation bar.
+</Note>
+
+## Accessing Your Profile
+
+1. Tap the **Profile** icon in the bottom navigation bar
+2. Your profile screen displays your information and options
+
+## Profile Information
+
+Your profile displays:
+
+```kotlin
+data class UserProfile(
+    val uid: String,              // Your unique user ID
+    val name: String,             // Your display name
+    val email: String,            // Your email address
+    val favoriteStories: List<String> = emptyList(),
+    val createdAt: Timestamp = Timestamp.now()
+)
+```
+
+### Displayed Information
+
+- **Name**: Your display name (set during registration)
+- **Email**: Your registered email address
+- **Member since**: Account creation date
+- **Story count**: Number of stories you've authored
+- **Favorites count**: Number of stories you've favorited
+
+<Tip>
+Your profile showcases your contributions to the Casa de Historias community.
+</Tip>
+
+## Profile Actions
+
+### View My Stories
+
+Tap **Mis Historias** (My Stories) to see all stories you've authored:
+
+```kotlin
+suspend fun getMyStories(): List<Story> {
+    val currentUser = authRepository.currentUser ?: return emptyList()
+    return getStoriesByAuthor(currentUser.uid)
+}
+```
+
+This navigates to the "My Stories" screen, where you can:
+- View all your published stories
+- Edit story details
+- Delete stories you've created
+
+### Settings
+
+Tap **Configuración** (Settings) to access app settings:
+
+```kotlin
+onNavigateToSettings = {
+    navController.navigate(Screen.Settings.route)
+}
+```
+
+See the [Settings](/user-guide/settings) page for details.
+
+### Log Out
+
+Tap **Cerrar Sesión** (Log Out) to sign out:
+
+```kotlin
+onLogout = {
+    authViewModel.signOut()
+    navController.navigate(Screen.Login.route) {
+        popUpTo(0) { inclusive = true }
+    }
+}
+```
+
+After logging out:
+- You're returned to the login screen
+- Your authentication token is cleared
+- You'll need to log in again to create stories or manage favorites
+
+<Warning>
+Logging out doesn't delete your account or stories. Your data remains safe in Firestore.
+</Warning>
+
+## Profile Statistics
+
+Your profile might display:
+
+<CardGroup cols={2}>
+  <Card title="Stories Created" icon="pen">
+    Total number of stories you've authored
+  </Card>
+  <Card title="Favorites" icon="heart">
+    Number of stories you've bookmarked
+  </Card>
+  <Card title="Communities" icon="location-dot">
+    Number of distinct communities you've contributed stories from
+  </Card>
+  <Card title="Audio Stories" icon="microphone">
+    Number of your stories with audio narration
+  </Card>
+</CardGroup>
+
+## Editing Your Profile
+
+Currently, you can:
+
+- **Name**: Set during registration (may not be editable)
+- **Email**: Cannot be changed (used for authentication)
+- **Password**: Change via Firebase Auth (may require reauthentication)
+
+<Note>
+Future updates may add profile photo, bio, and other customization options.
+</Note>
+
+## Account Data
+
+Your account includes:
+
+### User Profile (Firestore)
+
+```kotlin
+// Stored in Firestore: users/{uid}
+val userProfile = UserProfile(
+    uid = "abc123",
+    name = "María García",
+    email = "maria@example.com",
+    favoriteStories = ["story1", "story2", "story3"],
+    createdAt = Timestamp.now()
+)
+```
+
+### Authored Stories
+
+```kotlin
+// Stories where authorId == your uid
+val myStories = stories.filter { it.authorId == currentUser.uid }
+```
+
+### Favorites
+
+```kotlin
+// Story IDs in your favoriteStories list
+val favorites = storyRepository.getStoriesByIds(userProfile.favoriteStories)
+```
+
+## Privacy
+
+### What's Public
+
+- **Your name**: Displayed as the author on stories you create
+- **Stories you author**: Visible to all users
+- **Narrator credit**: If you enter your own name as narrator
+
+### What's Private
+
+- **Email address**: Never shown to other users
+- **Favorites**: Only you can see what you've favorited
+- **User ID**: Internal identifier, not displayed
+- **Account creation date**: Not publicly visible
+
+<Note>
+Casa de Historias respects your privacy. Personal information is never shared without your consent.
+</Note>
+
+## Deleting Your Account
+
+To delete your account:
+
+1. Contact support or use the account deletion feature (if implemented)
+2. Your user profile will be removed from Firestore
+3. Your stories may remain (with authorship removed) or be deleted based on your preference
+
+<Warning>
+Account deletion is permanent. Your stories, favorites, and profile data will be lost.
+</Warning>
+
+## Troubleshooting
+
+<Accordion title="Profile shows wrong information">
+  - Log out and log back in to refresh data
+  - Check that you're logged into the correct account
+  - Verify your internet connection to sync from Firestore
+</Accordion>
+
+<Accordion title="Can't access My Stories">
+  - Ensure you've created at least one story
+  - Check your internet connection
+  - Verify you're logged in (check profile screen)
+</Accordion>
+
+<Accordion title="Logout doesn't work">
+  - Force close the app and try again
+  - Check your internet connection
+  - Clear app data and log in again (this will clear local cache)
+</Accordion>
+
+<Accordion title="Can I change my email?">
+  Email addresses are tied to Firebase Authentication and cannot be changed. You would need to create a new account with a different email.
+</Accordion>
+
+## Best Practices
+
+- **Keep your account secure**: Use a strong password
+- **Regular contributions**: Add stories regularly to build your collection
+- **Attribution**: Always credit the original narrator in your stories
+- **Community engagement**: Contribute stories from your community
+
+<Tip>
+Your profile is a reflection of your contributions to preserving cultural heritage. Take pride in the stories you share!
+</Tip>

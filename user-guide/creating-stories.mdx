@@ -1,0 +1,226 @@
+---
+title: "Creating Stories"
+description: "Share your own bilingual legends with the community"
+---
+
+## Overview
+
+Casa de Historias allows authenticated users to contribute their own stories. The `AddStoryScreen` provides a comprehensive form for entering bilingual content, uploading media, and adding location data.
+
+<Note>
+You must be logged in to create stories. Stories are automatically associated with your user account.
+</Note>
+
+## Creating a New Story
+
+<Steps>
+  <Step title="Open the Add Story screen">
+    From the main story list, tap the **+** (floating action button) in the bottom right.
+  </Step>
+  
+  <Step title="Enter bilingual titles">
+    Provide titles in both languages:
+    - **Título en Español**: The Spanish title
+    - **Título en Náhuatl**: The Nahuatl title (optional but recommended)
+  </Step>
+  
+  <Step title="Write the story content">
+    Enter the full story text:
+    - **Contenido en Español**: Spanish version of the legend
+    - **Contenido en Náhuatl**: Nahuatl version (optional but encouraged)
+  </Step>
+  
+  <Step title="Add narrator and community">
+    Provide attribution:
+    - **Nombre del Narrador**: Who told this story? (e.g., "Doña Rosa Martínez")
+    - **Comunidad**: Which community does this story come from? (e.g., "Tequila", "Zongolica")
+  </Step>
+  
+  <Step title="Upload media (optional)">
+    Enhance your story with:
+    - **Cover image**: Tap "Seleccionar Imagen" to choose from your device
+    - **Audio narration**: Tap "Subir Audio" to upload an audio file
+  </Step>
+  
+  <Step title="Add location (optional)">
+    If the story is tied to a specific location:
+    - Enter **latitude** and **longitude** coordinates
+    - Or use the map picker to select a location
+  </Step>
+  
+  <Step title="Add tags (optional)">
+    Help others discover your story by adding relevant tags like:
+    - "leyenda", "naturaleza", "animales", "sierra", "tradición"
+  </Step>
+  
+  <Step title="Publish the story">
+    Tap **Publicar** to submit your story. It will appear immediately in the story list.
+  </Step>
+</Steps>
+
+## Story Data Structure
+
+When you create a story, the following data is saved:
+
+```kotlin
+data class Story(
+    val id: String,                    // Auto-generated
+    val titleEs: String,               // Required
+    val titleNahuatl: String,          // Recommended
+    val contentEs: String,             // Required
+    val contentNahuatl: String,        // Recommended
+    val audioUrl: String? = null,      // Optional audio file
+    val imageUrl: String? = null,      // Optional cover image
+    val narratorName: String,          // Required
+    val community: String,             // Required
+    val latitude: Double? = null,      // Optional coordinates
+    val longitude: Double? = null,
+    val authorId: String,              // Your user ID (automatic)
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = System.currentTimeMillis()
+)
+```
+
+## Uploading Images
+
+Images are stored in Firebase Storage:
+
+1. **Select an image** from your device gallery
+2. The image is uploaded to Firebase Storage under `images/{storyId}/cover.jpg`
+3. The download URL is saved to the story's `imageUrl` field
+4. Images are displayed as cover art on story cards
+
+<Tip>
+Use high-quality images (at least 1200x800px) for the best display quality. Images are compressed automatically.
+</Tip>
+
+### Recommended Image Subjects
+
+- Landscapes of the Sierra de Zongolica
+- Cultural artifacts or symbols
+- Illustrations representing the legend
+- Historical photographs of the community
+
+## Uploading Audio
+
+Audio narration brings stories to life:
+
+1. **Record or select** an audio file from your device
+2. The audio is uploaded to Firebase Storage under `audio/{storyId}/narration.mp3`
+3. The download URL is saved to `audioUrl`
+4. Audio is played back using Media3 (ExoPlayer)
+
+<Note>
+Supported audio formats: MP3, M4A, WAV. Maximum file size: 50MB. For best results, use MP3 format at 128kbps.
+</Note>
+
+### Recording Tips
+
+- Find a quiet environment to minimize background noise
+- Speak clearly and at a comfortable pace
+- Record in the original language (Nahuatl) when possible
+- Keep recordings under 10 minutes for best user experience
+
+## Adding Location Data
+
+Many legends are tied to specific places. You can add geographic coordinates:
+
+```kotlin
+val story = Story(
+    ...
+    latitude = 18.6667,  // Sierra de Zongolica region
+    longitude = -97.0000,
+    community = "Zongolica"
+)
+```
+
+Stories with location data appear on the interactive map view.
+
+<Warning>
+Only add location data if the story is genuinely associated with that place. Accurate geographic tagging helps preserve cultural geography.
+</Warning>
+
+## Validation
+
+The `AddStoryViewModel` validates your story before publishing:
+
+- **Title (Spanish)**: Required, cannot be blank
+- **Content (Spanish)**: Required, minimum 10 characters
+- **Narrator name**: Required
+- **Community**: Required
+- **Nahuatl fields**: Optional but recommended
+- **Media and location**: Always optional
+
+## Publishing
+
+When you tap **Publicar**:
+
+1. Story data is validated
+2. Images and audio are uploaded to Firebase Storage
+3. Story metadata is saved to Firestore in the `stories` collection
+4. Your user ID is recorded as the `authorId`
+5. The story appears immediately in the main list
+6. A timestamp is recorded in `createdAt`
+
+## Firestore Data
+
+Your story is saved in Firestore:
+
+```kotlin
+data class StoryFirestore(
+    val id: String = "",
+    val titleEs: String = "",
+    val titleNahuatl: String = "",
+    val contentEs: String = "",
+    val contentNahuatl: String = "",
+    val audioUrl: String? = null,
+    val imageUrl: String? = null,
+    val narratorName: String = "",
+    val community: String = "",
+    val authorId: String = "",
+    val published: Boolean = true,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val tags: List<String> = emptyList(),
+    val createdAt: Timestamp = Timestamp.now()
+)
+```
+
+<Tip>
+After publishing, your story can be found in:
+- The main story list
+- The discover tab ("Lo más nuevo")
+- Your profile's "My Stories" section
+- The community filter (if you added a community)
+- The map view (if you added coordinates)
+</Tip>
+
+## Best Practices
+
+### Content Guidelines
+
+- **Authenticity**: Share genuine oral traditions and legends
+- **Respect**: Honor the cultural significance of the stories
+- **Attribution**: Always credit the original narrator
+- **Language**: Provide Nahuatl text when possible to preserve the indigenous language
+- **Context**: Include the community name to preserve geographic origins
+
+### Writing Style
+
+- Write in a narrative style as the story would be told orally
+- Keep paragraphs short for easy reading on mobile devices
+- Use descriptive language to paint vivid imagery
+- Maintain the cultural tone and context of the original story
+
+## After Publishing
+
+Once your story is published:
+
+- It appears in the public story list immediately
+- Other users can read, favorite, and share it
+- You can edit or delete it from your "My Stories" page
+- It contributes to the preservation of cultural heritage
+
+<Note>
+You own the stories you create. You can edit or delete them at any time from your profile.
+</Note>

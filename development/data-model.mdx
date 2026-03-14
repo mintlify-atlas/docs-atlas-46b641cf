@@ -1,0 +1,298 @@
+---
+title: "Data Models"
+description: "Story data models across domain, Firestore, and Room layers"
+---
+
+# Data Models
+
+Casa de Historias uses three representations of story data depending on the layer:
+
+1. **Story** - Domain model for business logic
+2. **StoryFirestore** - Firebase Firestore model
+3. **StoryEntity** - Room database entity for local storage
+
+## Domain Model: Story
+
+The main business logic model used throughout the app.
+
+```kotlin
+data class Story(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioUrl: String?,
+    val imageUrl: String?,
+    val narratorName: String,
+    val community: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = 0L
+)
+```
+
+See `domain/model/Story.kt:3` for the full definition.
+
+### Story Fields
+
+<ParamField path="id" type="String" required>
+  Unique identifier for the story
+</ParamField>
+
+<ParamField path="titleEs" type="String" required>
+  Story title in Spanish
+</ParamField>
+
+<ParamField path="titleNahuatl" type="String" required>
+  Story title in Nahuatl language
+</ParamField>
+
+<ParamField path="contentEs" type="String" required>
+  Full story content in Spanish
+</ParamField>
+
+<ParamField path="contentNahuatl" type="String" required>
+  Full story content in Nahuatl
+</ParamField>
+
+<ParamField path="audioUrl" type="String?">
+  URL to audio narration file in Firebase Storage (optional)
+</ParamField>
+
+<ParamField path="imageUrl" type="String?">
+  URL to cover image in Firebase Storage (optional)
+</ParamField>
+
+<ParamField path="narratorName" type="String" required>
+  Name of the person who narrated/shared the story
+</ParamField>
+
+<ParamField path="community" type="String" required>
+  Community or region where the story originates
+</ParamField>
+
+<ParamField path="latitude" type="Double?">
+  Geographic latitude coordinate (optional)
+</ParamField>
+
+<ParamField path="longitude" type="Double?">
+  Geographic longitude coordinate (optional)
+</ParamField>
+
+<ParamField path="authorId" type="String" default="">
+  Firebase Auth UID of the user who created the story
+</ParamField>
+
+<ParamField path="tags" type="List<String>" default="emptyList()">
+  Searchable tags for categorization
+</ParamField>
+
+<ParamField path="createdAt" type="Long" default="0L">
+  Timestamp in milliseconds when the story was created
+</ParamField>
+
+## Firestore Model: StoryFirestore
+
+The Firestore representation with Firebase-specific annotations.
+
+```kotlin
+data class StoryFirestore(
+    @DocumentId
+    val id: String = "",
+    val titleEs: String = "",
+    val titleNahuatl: String = "",
+    val contentEs: String = "",
+    val contentNahuatl: String = "",
+    val audioUrl: String? = null,
+    val imageUrl: String? = null,
+    val narratorName: String = "",
+    val community: String = "",
+    val createdAt: Timestamp = Timestamp.now(),
+    val updatedAt: Timestamp = Timestamp.now(),
+    val published: Boolean = true,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
+```
+
+See `data/firebase/model/StoryFirestore.kt:6` for the full definition.
+
+### Additional Firestore Fields
+
+<ParamField path="@DocumentId id" type="String">
+  Firestore document ID annotation - automatically populated
+</ParamField>
+
+<ParamField path="createdAt" type="Timestamp">
+  Firebase Timestamp of creation (not milliseconds)
+</ParamField>
+
+<ParamField path="updatedAt" type="Timestamp">
+  Firebase Timestamp of last update
+</ParamField>
+
+<ParamField path="published" type="Boolean" default="true">
+  Whether the story is publicly visible (for draft functionality)
+</ParamField>
+
+## Room Entity: StoryEntity
+
+The local database representation for offline caching.
+
+```kotlin
+@Entity(tableName = "stories")
+data class StoryEntity(
+    @PrimaryKey val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioPath: String?, // Local file path
+    val imagePath: String?, // Local file path
+    val narratorName: String,
+    val community: String,
+    val isFavorite: Boolean = false
+)
+```
+
+See `data/local/entities/StoryEntity.kt:7` for the full definition.
+
+### Room-Specific Fields
+
+<ParamField path="@PrimaryKey id" type="String">
+  Room primary key annotation
+</ParamField>
+
+<ParamField path="audioPath" type="String?">
+  **Local** file path to cached audio (not URL)
+</ParamField>
+
+<ParamField path="imagePath" type="String?">
+  **Local** file path to cached image (not URL)
+</ParamField>
+
+<ParamField path="isFavorite" type="Boolean" default="false">
+  Whether the user has favorited this story (user-specific)
+</ParamField>
+
+<Note>
+The Room entity stores **local paths** instead of URLs for offline access, and includes a `isFavorite` field not present in other models.
+</Note>
+
+## Model Conversions
+
+The repository layer converts between these models:
+
+### StoryFirestore → Story
+
+```kotlin
+private fun StoryFirestore.toDomainModel(): Story {
+    return Story(
+        id = this.id,
+        titleEs = this.titleEs,
+        titleNahuatl = this.titleNahuatl,
+        contentEs = this.contentEs,
+        contentNahuatl = this.contentNahuatl,
+        audioUrl = this.audioUrl,
+        imageUrl = this.imageUrl,
+        narratorName = this.narratorName,
+        community = this.community,
+        latitude = this.latitude,
+        longitude = this.longitude,
+        authorId = this.authorId,
+        tags = this.tags,
+        createdAt = this.createdAt.seconds * 1000 // Convert to milliseconds
+    )
+}
+```
+
+See `data/repository/StoryRepository.kt:88` for Firestore-to-domain conversion.
+
+### Story → StoryFirestore
+
+```kotlin
+private fun Story.toFirestoreModel(authorId: String): StoryFirestore {
+    return StoryFirestore(
+        id = this.id,
+        titleEs = this.titleEs,
+        titleNahuatl = this.titleNahuatl,
+        contentEs = this.contentEs,
+        contentNahuatl = this.contentNahuatl,
+        audioUrl = this.audioUrl,
+        imageUrl = this.imageUrl,
+        narratorName = this.narratorName,
+        community = this.community,
+        authorId = authorId,
+        published = true,
+        latitude = this.latitude,
+        longitude = this.longitude,
+        tags = this.tags
+    )
+}
+```
+
+See `data/repository/StoryRepository.kt:107` for domain-to-Firestore conversion.
+
+## UserProfile Model
+
+User account information stored in Firestore:
+
+```kotlin
+data class UserProfile(
+    @DocumentId
+    val id: String = "",
+    val email: String = "",
+    val displayName: String = "",
+    val photoUrl: String? = null,
+    val community: String = "",
+    val isStoryteller: Boolean = false,
+    val favoriteStories: List<String> = emptyList(),
+    val createdAt: Timestamp = Timestamp.now(),
+    val lastLogin: Timestamp = Timestamp.now()
+)
+```
+
+See `data/firebase/model/UserProfile.kt:6` for the user profile definition.
+
+### UserProfile Fields
+
+<ParamField path="id" type="String">
+  Firebase Auth UID
+</ParamField>
+
+<ParamField path="email" type="String">
+  User's email address
+</ParamField>
+
+<ParamField path="displayName" type="String">
+  Public display name
+</ParamField>
+
+<ParamField path="photoUrl" type="String?">
+  Profile picture URL (optional)
+</ParamField>
+
+<ParamField path="community" type="String">
+  User's community affiliation
+</ParamField>
+
+<ParamField path="isStoryteller" type="Boolean" default="false">
+  Badge indicating the user is a recognized storyteller
+</ParamField>
+
+<ParamField path="favoriteStories" type="List<String>">
+  Array of story IDs the user has favorited
+</ParamField>
+
+<ParamField path="createdAt" type="Timestamp">
+  Account creation timestamp
+</ParamField>
+
+<ParamField path="lastLogin" type="Timestamp">
+  Last login timestamp
+</ParamField>

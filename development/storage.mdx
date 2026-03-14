@@ -1,0 +1,370 @@
+---
+title: "Firebase Storage"
+description: "Firebase Storage for images and audio, StorageRepository implementation"
+---
+
+# Firebase Storage
+
+Casa de Historias uses **Firebase Storage** to store and serve media files (images and audio) for stories.
+
+## StorageRepository
+
+All storage operations are handled by the `StorageRepository`.
+
+```kotlin
+@Singleton
+class StorageRepository @Inject constructor(
+    private val storage: FirebaseStorage
+) {
+    suspend fun uploadImage(uri: Uri, storyId: String): String?
+    suspend fun uploadAudio(uri: Uri, storyId: String): String?
+    suspend fun deleteFile(url: String): Boolean
+}
+```
+
+See `data/firebase/StorageRepository.kt:10` for the full implementation.
+
+## Storage Structure
+
+Files are organized by story:
+
+```
+storage/
+└── stories/
+    ├── {storyId}/
+    │   ├── cover.jpg
+    │   └── audio.mp3
+    ├── {storyId}/
+    │   ├── cover.jpg
+    │   └── audio.mp3
+    └── ...
+```
+
+Each story has its own folder containing:
+- `cover.jpg` - Story cover image
+- `audio.mp3` - Story narration audio
+
+## Upload Operations
+
+### Upload Image
+
+```kotlin
+suspend fun uploadImage(uri: Uri, storyId: String): String? {
+    return try {
+        val ref = storage.reference.child("stories/$storyId/cover.jpg")
+        ref.putFile(uri).await()
+        ref.downloadUrl.await().toString()
+    } catch (e: Exception) {
+        null
+    }
+}
+```
+
+See `data/firebase/StorageRepository.kt:14`.
+
+**Process:**
+1. Create reference to `stories/{storyId}/cover.jpg`
+2. Upload file from URI
+3. Wait for upload to complete
+4. Get download URL
+5. Return URL as String (or null on failure)
+
+**Returns**: Download URL that can be stored in Firestore and used to display the image.
+
+### Upload Audio
+
+```kotlin
+suspend fun uploadAudio(uri: Uri, storyId: String): String? {
+    return try {
+        val ref = storage.reference.child("stories/$storyId/audio.mp3")
+        ref.putFile(uri).await()
+        ref.downloadUrl.await().toString()
+    } catch (e: Exception) {
+        null
+    }
+}
+```
+
+See `data/firebase/StorageRepository.kt:24`.
+
+Same process as image upload, but for audio files.
+
+**Supported formats**: MP3, M4A, WAV, OGG
+
+## Delete Operations
+
+### Delete File
+
+```kotlin
+suspend fun deleteFile(url: String): Boolean {
+    return try {
+        storage.getReferenceFromUrl(url).delete().await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+See `data/firebase/StorageRepository.kt:34`.
+
+**Usage**: Delete media files when a story is deleted or when replacing media.
+
+```kotlin
+// Example: Delete old image before uploading new one
+story.imageUrl?.let { oldUrl ->
+    storageRepository.deleteFile(oldUrl)
+}
+val newImageUrl = storageRepository.uploadImage(newImageUri, storyId)
+```
+
+## Usage Example
+
+Here's how to add a story with image and audio:
+
+```kotlin
+// In AddStoryViewModel
+fun addStory(
+    titleEs: String,
+    titleNahuatl: String,
+    contentEs: String,
+    contentNahuatl: String,
+    imageUri: Uri?,
+    audioUri: Uri?,
+    // ... other fields
+) {
+    viewModelScope.launch {
+        // 1. Create story in Firestore to get ID
+        val storyId = storyRepository.addStory(
+            Story(
+                id = "",  // Will be generated
+                titleEs = titleEs,
+                titleNahuatl = titleNahuatl,
+                contentEs = contentEs,
+                contentNahuatl = contentNahuatl,
+                // ... other fields
+            )
+        )
+
+        if (storyId != null) {
+            // 2. Upload image if provided
+            val imageUrl = imageUri?.let { uri ->
+                storageRepository.uploadImage(uri, storyId)
+            }
+
+            // 3. Upload audio if provided
+            val audioUrl = audioUri?.let { uri ->
+                storageRepository.uploadAudio(uri, storyId)
+            }
+
+            // 4. Update story with media URLs
+            if (imageUrl != null || audioUrl != null) {
+                storyRepository.updateStory(
+                    story.copy(
+                        imageUrl = imageUrl,
+                        audioUrl = audioUrl
+                    )
+                )
+            }
+        }
+    }
+}
+```
+
+## File Naming Convention
+
+- **Images**: Always named `cover.jpg` (overwritten when updated)
+- **Audio**: Always named `audio.mp3` (overwritten when updated)
+
+This simplifies management:
+- No orphaned files
+- Easy to update (just overwrite)
+- Predictable file paths
+
+## Download URLs
+
+Firebase Storage generates signed download URLs:
+
+```
+https://firebasestorage.googleapis.com/v0/b/casa-de-historias.appspot.com/o/stories%2F{storyId}%2Fcover.jpg?alt=media&token={token}
+```
+
+These URLs:
+- Are publicly accessible (if security rules allow)
+- Don't expire (by default)
+- Can be used directly in image loaders and media players
+
+## Loading Images in UI
+
+Use Coil to load images from Storage URLs:
+
+```kotlin
+AsyncImage(
+    model = story.imageUrl,
+    contentDescription = story.titleEs,
+    modifier = Modifier.fillMaxWidth(),
+    contentScale = ContentScale.Crop
+)
+```
+
+See `ui/story/StoryListScreen.kt:218` for image loading example.
+
+Coil automatically:
+- Downloads the image
+- Caches it locally
+- Handles loading states
+- Retries on failure
+
+## Playing Audio
+
+Use Media3 ExoPlayer to stream audio:
+
+```kotlin
+val player = ExoPlayer.Builder(context).build()
+val mediaItem = MediaItem.fromUri(story.audioUrl ?: "")
+player.setMediaItem(mediaItem)
+player.prepare()
+player.play()
+```
+
+ExoPlayer:
+- Streams audio without downloading entire file
+- Supports buffering and seeking
+- Handles network interruptions
+- Works with background playback
+
+## Security Rules
+
+Initial Storage security rules:
+
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /stories/{storyId}/{allPaths=**} {
+      // Anyone can read
+      allow read: if true;
+      
+      // Only authenticated users can write
+      allow write: if request.auth != null;
+    }
+  }
+}
+```
+
+### Production Rules
+
+For production, add validation:
+
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /stories/{storyId}/{fileName} {
+      allow read: if true;
+      
+      allow write: if request.auth != null
+        && fileName in ['cover.jpg', 'audio.mp3']
+        && request.resource.size < 50 * 1024 * 1024  // Max 50MB
+        && (
+          (fileName == 'cover.jpg' && request.resource.contentType.matches('image/.*'))
+          || (fileName == 'audio.mp3' && request.resource.contentType.matches('audio/.*'))
+        );
+      
+      allow delete: if request.auth != null;
+    }
+  }
+}
+```
+
+This ensures:
+- Only specific filenames allowed
+- File size limit (50MB)
+- Content type validation
+- Only authenticated users can upload/delete
+
+## Error Handling
+
+All Storage operations return nullable values:
+
+```kotlin
+val imageUrl = storageRepository.uploadImage(uri, storyId)
+if (imageUrl != null) {
+    // Success - save URL to Firestore
+} else {
+    // Failure - show error to user
+}
+```
+
+Common errors:
+- **Network failure** - No internet connection
+- **Permission denied** - Security rules reject upload
+- **File too large** - Exceeds size limit
+- **Invalid file type** - Unsupported format
+
+## File Compression
+
+<Note>
+The current implementation uploads files as-is. For production, consider:
+- Compressing images before upload
+- Converting audio to optimized formats
+- Using Cloud Functions to generate thumbnails
+</Note>
+
+Example image compression (before upload):
+
+```kotlin
+fun compressImage(uri: Uri, context: Context): ByteArray {
+    val bitmap = MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+    val outputStream = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+    return outputStream.toByteArray()
+}
+```
+
+## Monitoring Usage
+
+Monitor Storage usage in Firebase Console:
+
+1. Go to **Storage** in Firebase Console
+2. View **Usage** tab
+3. Check:
+   - Total storage used
+   - Download bandwidth
+   - Upload bandwidth
+   - Number of operations
+
+## Cost Optimization
+
+1. **Compress media files** before upload
+2. **Use CDN caching** (automatic with Firebase Storage)
+3. **Delete unused files** when stories are deleted
+4. **Set retention policies** for old/deleted content
+5. **Monitor bandwidth usage** and set alerts
+
+## Dependency Injection
+
+Storage is provided via Hilt:
+
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object FirebaseModule {
+    @Provides
+    @Singleton
+    fun provideFirebaseStorage(): FirebaseStorage = FirebaseStorage.getInstance()
+}
+```
+
+See `di/FirebaseModule.kt:24` for Storage injection.
+
+## Best Practices
+
+1. **Upload after story creation** - Get story ID first, then upload media
+2. **Update Firestore with URLs** - Store download URLs in Firestore documents
+3. **Handle upload failures** - Show error messages and allow retry
+4. **Show upload progress** - Use `putFile().addOnProgressListener()` for progress bars
+5. **Delete old files** - Remove previous media when updating
+6. **Validate file types** - Check MIME types before upload
+7. **Compress large files** - Reduce storage and bandwidth costs
+8. **Use appropriate file names** - Consistent naming makes management easier

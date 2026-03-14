@@ -1,0 +1,532 @@
+---
+title: "Quickstart Guide"
+description: "Step-by-step guide to creating your first story in Casa de Historias"
+---
+
+# Quickstart Guide
+
+This guide will walk you through the complete user journey: from creating an account to publishing your first bilingual story.
+
+## Complete User Journey
+
+<Steps>
+  <Step title="Create Your Account">
+    Launch Casa de Historias and create your account to start sharing stories.
+  </Step>
+  
+  <Step title="Browse Existing Stories">
+    Explore the story collection to understand the format and content.
+  </Step>
+  
+  <Step title="Create Your First Story">
+    Write and publish a bilingual legend with images and location.
+  </Step>
+  
+  <Step title="Listen to Audio Narrations">
+    Discover stories with authentic audio recordings.
+  </Step>
+  
+  <Step title="Explore the Map">
+    View stories geographically across Sierra de Zongolica.
+  </Step>
+</Steps>
+
+---
+
+## Step 1: Create Account
+
+First-time users need to create an account to contribute stories.
+
+<Steps>
+  <Step title="Launch the App">
+    Open Casa de Historias. You'll see the **Welcome Screen** (`WelcomeScreen.kt`).
+    
+    Tap **Continue** to proceed.
+  </Step>
+  
+  <Step title="Navigate to Sign Up">
+    On the **Login Screen** (`LoginScreen.kt`), tap **Sign Up** at the bottom.
+  </Step>
+  
+  <Step title="Fill Registration Form">
+    On the **Sign Up Screen** (`SignUpScreen.kt`), enter:
+    
+    - **Email**: Your email address (e.g., `maria@example.com`)
+    - **Password**: At least 6 characters
+    - **Display Name**: Your name as it will appear on stories (e.g., "María García")
+    - **Community**: Your community of origin (e.g., "Tequila", "Zongolica")
+    
+    <Note>
+    Your display name and community will be visible to other users when you publish stories.
+    </Note>
+  </Step>
+  
+  <Step title="Create Account">
+    Tap **Create Account**.
+    
+    The `AuthViewModel` will:
+    ```kotlin
+    fun signUp(email: String, password: String, displayName: String, community: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            val result = authRepository.createUserWithEmailAndPassword(
+                email, password, displayName, community
+            )
+        }
+    }
+    ```
+    
+    On success, you'll automatically navigate to the **Story List Screen**.
+  </Step>
+</Steps>
+
+<Warning>
+Make sure you have an active internet connection. Account creation requires Firebase Authentication.
+</Warning>
+
+---
+
+## Step 2: Browse Stories
+
+Before creating your own story, explore existing content to understand the format.
+
+### Using the Story List
+
+After logging in, you'll land on the **Story List Screen** (`StoryListScreen.kt`).
+
+<CardGroup cols={2}>
+  <Card title="Browse Stories" icon="list">
+    Scroll through all published stories in a grid layout
+  </Card>
+  
+  <Card title="Search Stories" icon="search">
+    Tap the search icon to find specific stories, narrators, or communities
+  </Card>
+  
+  <Card title="View Details" icon="book-open">
+    Tap any story card to open the full story detail view
+  </Card>
+  
+  <Card title="Add to Favorites" icon="heart">
+    Tap the heart icon on story details to save to favorites
+  </Card>
+</CardGroup>
+
+### Reading a Story
+
+When you tap a story, the **Story Detail Screen** (`StoryDetailScreen.kt`) opens showing:
+
+1. **Cover Image** (if available) - Full-width header image
+2. **Titles** - Spanish title in primary color, Náhuatl title in accent color
+3. **Narrator Info** - Who told this story and from which community
+4. **Story Content** - Full text in both languages
+5. **Action Buttons** - Favorite toggle and edit (if you're the author)
+
+```kotlin
+// Story detail displays bilingual content
+Text(
+    text = story.titleEs,          // Spanish title
+    style = MaterialTheme.typography.headlineMedium,
+    color = LunaLlena
+)
+
+Text(
+    text = story.titleNahuatl,     // Náhuatl title
+    style = MaterialTheme.typography.titleLarge,
+    fontStyle = FontStyle.Italic,
+    color = AguaSagrada
+)
+```
+
+### Using the Discover Tab
+
+Switch to the **Discover** tab (bottom navigation) for curated content:
+
+- **Recent Stories**: Latest 5 published stories
+- **With Audio**: Stories featuring narration recordings
+- **By Community**: Filter by geographic community
+- **Dictionary**: Access Náhuatl-Spanish translations
+
+---
+
+## Step 3: Create Your First Story
+
+Now you're ready to publish your own legend!
+
+<Steps>
+  <Step title="Open Story Creation">
+    From the **Story List Screen**, tap the **+ (Add)** floating action button in the bottom right.
+    
+    This opens the **Add Story Screen** (`AddStoryScreen.kt`).
+  </Step>
+  
+  <Step title="Add Cover Image (Optional)">
+    Tap the image placeholder at the top to select a cover photo:
+    
+    ```kotlin
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        selectedImageUri = uri
+    }
+    ```
+    
+    - Choose from your device's photo gallery
+    - Image will be uploaded to Firebase Storage when you publish
+    
+    <Note>
+    Cover images help make your story more engaging and visually appealing.
+    </Note>
+  </Step>
+  
+  <Step title="Enter Story Metadata">
+    Fill in the **Datos Generales** (General Information) section:
+    
+    **Required Fields:**
+    - **Título en Español** (Spanish Title): e.g., "La Llorona de Tequila"
+    - **Nombre del Narrador** (Narrator Name): Your name or the original storyteller
+    
+    **Optional Fields:**
+    - **Título en Náhuatl** (Náhuatl Title): Translation of the title
+    - **Comunidad de origen** (Community): Specific village/town (e.g., "Tequila")
+    
+    <Warning>
+    Fields marked with * are required. The publish button will validate these before submission.
+    </Warning>
+  </Step>
+  
+  <Step title="Set Location on Map (Optional)">
+    Scroll down to the MapLibre map showing Sierra de Zongolica:
+    
+    ```kotlin
+    // Map centered on Sierra de Zongolica
+    map.cameraPosition = CameraPosition.Builder()
+        .target(LatLng(18.6667, -97.0000))
+        .zoom(8.0)
+        .build()
+    ```
+    
+    **To set location:**
+    1. Pan the map to the story's origin point
+    2. Tap the map at the exact location
+    3. A marker will appear showing "Ubicación de la historia"
+    
+    The coordinates are saved as `latitude` and `longitude` in your story.
+    
+    <Note>
+    Location helps others discover your story on the Map tab and provides cultural-geographic context.
+    </Note>
+  </Step>
+  
+  <Step title="Write the Story Content">
+    Scroll to the **La Historia** (The Story) section.
+    
+    **Required:**
+    - **Historia en Español** (Story in Spanish): Write the full legend text
+    
+    **Optional:**
+    - **Historia en Náhuatl**: Translation of the story content
+    
+    Use the large text fields to write your complete narrative:
+    
+    ```kotlin
+    CustomOutlinedTextField(
+        value = contentEs,
+        onValueChange = { contentEs = it },
+        label = "Historia en Español *",
+        modifier = Modifier.heightIn(min = 120.dp),
+        singleLine = false
+    )
+    ```
+    
+    **Example Spanish Content:**
+    ```
+    Cuentan los abuelos de Tequila que en las noches de luna llena,
+    se escucha el llanto de una mujer cerca del río. Dicen que es
+    el espíritu de una madre que perdió a sus hijos hace muchos años...
+    ```
+  </Step>
+  
+  <Step title="Publish Your Story">
+    Once all required fields are filled:
+    
+    1. Review your content for accuracy
+    2. Tap the **Publicar Historia** (Publish Story) button at the bottom
+    3. The app will show a loading indicator
+    
+    The `AddStoryViewModel` will:
+    ```kotlin
+    fun addStory(
+        titleEs: String,
+        titleNahuatl: String,
+        contentEs: String,
+        contentNahuatl: String,
+        narratorName: String,
+        community: String,
+        imageUri: Uri?,
+        latitude: Double?,
+        longitude: Double?
+    ) {
+        // Upload image to Firebase Storage
+        // Create story document in Firestore
+        // Associate with your user ID
+    }
+    ```
+    
+    On success, you'll return to the Story List where your new story appears!
+  </Step>
+</Steps>
+
+<Note>
+Your published story is immediately visible to all users. You can edit or delete it later from the story detail screen.
+</Note>
+
+---
+
+## Step 4: Listen to Audio Stories
+
+Discover stories with authentic audio narrations from community elders.
+
+<Steps>
+  <Step title="Find Audio Stories">
+    Go to the **Discover** tab and scroll to the **Con Audio Original** (With Original Audio) section.
+    
+    Stories with audio show a play button icon:
+    
+    ```kotlin
+    // Visual indicator for audio-enabled stories
+    if (!story.audioUrl.isNullOrBlank()) {
+        Icon(
+            Icons.Default.PlayArrow,
+            contentDescription = "Audio",
+            tint = AguaSagrada
+        )
+    }
+    ```
+  </Step>
+  
+  <Step title="Open Audio Story">
+    Tap a story card with the play button to open the full story detail.
+  </Step>
+  
+  <Step title="Play Audio">
+    <Warning>
+    Audio playback UI is not yet implemented. The app uses Media3 (ExoPlayer) for audio infrastructure, but playback controls are not visible in the current version.
+    </Warning>
+    
+    The backend supports audio via:
+    ```kotlin
+    // Media3 ExoPlayer dependency
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.session)
+    ```
+    
+    Audio URLs are stored in the story's `audioUrl` field and streamed from Firebase Storage.
+  </Step>
+</Steps>
+
+---
+
+## Step 5: Explore the Map
+
+Visualize stories geographically across Sierra de Zongolica.
+
+<Steps>
+  <Step title="Open Map Tab">
+    Tap the **Mapa** (Map) tab in the bottom navigation.
+    
+    This opens the **Story Map Screen** (`StoryMapScreen.kt`).
+  </Step>
+  
+  <Step title="View Story Markers">
+    The map displays using MapLibre with OpenFreeMap tiles:
+    
+    ```kotlin
+    // Stories with location shown as markers
+    val storiesWithLocation = stories.filter { 
+        it.latitude != null && it.longitude != null 
+    }
+    
+    storiesWithLocation.forEach { story ->
+        map.addMarker(
+            MarkerOptions()
+                .position(LatLng(story.latitude!!, story.longitude!!))
+                .title(story.titleEs)
+                .snippet("Narrado por ${story.narratorName}")
+        )
+    }
+    ```
+    
+    Each marker represents a story's geographic origin.
+  </Step>
+  
+  <Step title="Tap Marker for Preview">
+    Tap any marker on the map.
+    
+    A **bottom sheet** appears showing:
+    - Story title (Spanish and Náhuatl)
+    - Preview of story content (first 3 lines)
+    - **"Leer leyenda completa"** button
+  </Step>
+  
+  <Step title="Read Full Story">
+    Tap **Leer leyenda completa** (Read complete legend) in the bottom sheet.
+    
+    This navigates to the full Story Detail Screen.
+  </Step>
+</Steps>
+
+<Note>
+If no stories have locations set, the map will show an empty state message: "Aún no hay historias con ubicación en el mapa" (No stories with map locations yet).
+</Note>
+
+---
+
+## Additional Features to Try
+
+### Search for Stories
+
+1. From Story List, tap the **search icon** in the top bar
+2. The **Search Screen** (`SearchScreen.kt`) opens
+3. Type query in the search field
+4. Results filter as you type, searching across:
+   - Story titles (Spanish and Náhuatl)
+   - Narrator names
+   - Community names
+   - Tags
+
+```kotlin
+// Search functionality
+suspend fun searchStories(query: String): List<Story> {
+    return firestoreRepository.searchStories(query)
+        .map { it.toDomainModel() }
+}
+```
+
+### Save Favorites
+
+1. Open any story detail
+2. Tap the **heart icon** in the top right
+3. Story is saved to your favorites
+4. Access via **Favorites** tab in bottom navigation
+
+Favorites are synced across devices via Firebase and cached locally:
+
+```kotlin
+// Toggle favorite status
+favoritesViewModel.toggleFavorite(storyId)
+
+// Check if favorited
+val isFavorite = favoriteIds.contains(story.id)
+```
+
+### Learn Náhuatl Words
+
+1. Go to **Discover** tab
+2. Scroll to **Aprender** (Learn) section
+3. Tap the **Diccionario Náhuatl** card
+4. Browse common words with Spanish translations
+5. Use search to find specific terms
+
+The **Dictionary Screen** (`DictionaryScreen.kt`) includes cultural context:
+
+```kotlin
+NahuatlWord(
+    nahuatl = "Tonatiuh",
+    spanish = "Sol",
+    example = "El dador de vida."
+)
+```
+
+### Edit Your Stories
+
+1. Open one of your published stories
+2. Tap the **edit icon** (pencil) in the top right
+3. The **Edit Story Screen** (`EditStoryScreen.kt`) opens
+4. Modify any fields
+5. Tap **Save** to update
+
+<Note>
+You can only edit stories you created. The edit button only appears if `story.authorId` matches your user ID.
+</Note>
+
+---
+
+## Tips for Great Stories
+
+<CardGroup cols={2}>
+  <Card title="Include Both Languages" icon="language">
+    While Náhuatl content is optional, bilingual stories help preserve the language and are more valuable culturally.
+  </Card>
+  
+  <Card title="Add Location Context" icon="map-pin">
+    Setting a precise location helps others understand the geographic and cultural context of your legend.
+  </Card>
+  
+  <Card title="Use Quality Images" icon="image">
+    Cover photos showing the story's location or cultural elements make your story more engaging.
+  </Card>
+  
+  <Card title="Credit Original Storytellers" icon="user">
+    Use the narrator name field to credit elders or original sources if you're transcribing oral traditions.
+  </Card>
+</CardGroup>
+
+---
+
+## Troubleshooting
+
+### Story Won't Publish
+
+**Problem:** Publish button doesn't work
+
+**Solutions:**
+- Ensure all required fields (*) are filled
+- Check internet connection (required for Firebase upload)
+- Verify you're logged in
+- Try closing and reopening the Add Story screen
+
+### Image Upload Failed
+
+**Problem:** Cover image won't upload
+
+**Solutions:**
+- Check image file size (should be under 5MB)
+- Verify internet connection is stable
+- Try selecting a different image
+- Ensure Firebase Storage is properly configured
+
+### Map Not Working
+
+**Problem:** Cannot set location on map
+
+**Solutions:**
+- Grant location permission when prompted
+- Ensure internet connection is active (map tiles require network)
+- Try zooming in/out before tapping
+- Restart the app if map doesn't load
+
+### Audio Not Playing
+
+**Problem:** Cannot hear audio narration
+
+**Solutions:**
+- Check device volume is not muted
+- Verify internet connection (audio streams from Firebase Storage)
+- Note: Audio playback controls are not fully implemented in current version
+
+---
+
+## Next Steps
+
+You've completed the quickstart! Continue exploring:
+
+- [Features](/features) - Learn about all app capabilities
+- [Setup](/getting-started/setup) - Advanced Firebase configuration
+- Publish more stories to preserve your community's oral traditions
+- Encourage elders and community members to contribute their legends
+
+<Note>
+Casa de Historias is a community effort. Every story you add helps preserve the cultural heritage of Sierra de Zongolica for future generations.
+</Note>

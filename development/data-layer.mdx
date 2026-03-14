@@ -1,0 +1,508 @@
+---
+title: "Data Layer"
+description: "Repository pattern, StoryRepository, FirestoreRepository, and Room DAO"
+---
+
+# Data Layer
+
+The data layer implements the **Repository Pattern** to provide a clean API for data access, coordinating between Firebase (remote) and Room (local) data sources.
+
+## Architecture
+
+```
+UI Layer (ViewModels)
+        ↓
+Repository Layer (StoryRepository)
+        ↓
+   ┌────────┴────────┐
+   │                  │
+FirestoreRepository  Room DAO
+   │                  │
+Firebase Cloud    Local SQLite
+```
+
+## StoryRepository
+
+The main repository coordinating data access.
+
+```kotlin
+@Singleton
+class StoryRepository @Inject constructor(
+    private val firestoreRepository: FirestoreRepository,
+    private val authRepository: AuthRepository
+) {
+    fun getAllStoriesFlow(): Flow<List<Story>> =
+        firestoreRepository.getAllStoriesFlow().map { stories ->
+            stories.map { it.toDomainModel() }
+        }
+
+    suspend fun getAllStories(): List<Story> {
+        return firestoreRepository.getAllStories().map { it.toDomainModel() }
+    }
+}
+```
+
+See `data/repository/StoryRepository.kt:13` for the full implementation.
+
+### Key Methods
+
+#### Get All Stories (Flow)
+
+Reactive stream of all published stories:
+
+```kotlin
+fun getAllStoriesFlow(): Flow<List<Story>> =
+    firestoreRepository.getAllStoriesFlow().map { stories ->
+        stories.map { it.toDomainModel() }
+    }
+```
+
+See `data/repository/StoryRepository.kt:18`.
+
+#### Get All Stories (One-time)
+
+```kotlin
+suspend fun getAllStories(): List<Story> {
+    return firestoreRepository.getAllStories().map { it.toDomainModel() }
+}
+```
+
+See `data/repository/StoryRepository.kt:23`.
+
+#### Get Story by ID
+
+```kotlin
+suspend fun getStoryById(id: String): Story? {
+    return firestoreRepository.getStoryById(id)?.toDomainModel()
+}
+```
+
+See `data/repository/StoryRepository.kt:27`.
+
+#### Get Stories by Community
+
+```kotlin
+suspend fun getStoriesByCommunity(community: String): List<Story> {
+    return firestoreRepository.getStoriesByCommunity(community).map { it.toDomainModel() }
+}
+```
+
+See `data/repository/StoryRepository.kt:31`.
+
+#### Get Stories by Author
+
+```kotlin
+suspend fun getStoriesByAuthor(authorId: String): List<Story> {
+    return firestoreRepository.getStoriesByAuthor(authorId).map { it.toDomainModel() }
+}
+```
+
+See `data/repository/StoryRepository.kt:35`.
+
+#### Get My Stories
+
+```kotlin
+suspend fun getMyStories(): List<Story> {
+    val currentUser = authRepository.currentUser ?: return emptyList()
+    return getStoriesByAuthor(currentUser.uid)
+}
+```
+
+See `data/repository/StoryRepository.kt:39`.
+
+#### Search Stories
+
+```kotlin
+suspend fun searchStories(query: String): List<Story> {
+    return firestoreRepository.searchStories(query).map { it.toDomainModel() }
+}
+```
+
+See `data/repository/StoryRepository.kt:48`.
+
+#### Add Story
+
+```kotlin
+suspend fun addStory(story: Story): String? {
+    val currentUser = authRepository.currentUser
+    return if (currentUser != null) {
+        val storyFirestore = story.toFirestoreModel(currentUser.uid)
+        firestoreRepository.addStory(storyFirestore)
+    } else null
+}
+```
+
+See `data/repository/StoryRepository.kt:52`.
+
+#### Update Story
+
+```kotlin
+suspend fun updateStory(story: Story): Boolean {
+    val currentUser = authRepository.currentUser
+    return if (currentUser != null) {
+        val storyFirestore = story.toFirestoreModel(currentUser.uid)
+        firestoreRepository.updateStory(storyFirestore)
+    } else false
+}
+```
+
+See `data/repository/StoryRepository.kt:60`.
+
+#### Delete Story
+
+```kotlin
+suspend fun deleteStory(storyId: String): Boolean {
+    return firestoreRepository.deleteStory(storyId)
+}
+```
+
+See `data/repository/StoryRepository.kt:68`.
+
+#### Favorites Management
+
+```kotlin
+suspend fun addToFavorites(storyId: String): Boolean {
+    val currentUser = authRepository.currentUser
+    return if (currentUser != null) {
+        firestoreRepository.addToFavorites(currentUser.uid, storyId)
+    } else false
+}
+
+suspend fun removeFromFavorites(storyId: String): Boolean {
+    val currentUser = authRepository.currentUser
+    return if (currentUser != null) {
+        firestoreRepository.removeFromFavorites(currentUser.uid, storyId)
+    } else false
+}
+```
+
+See `data/repository/StoryRepository.kt:72`.
+
+## FirestoreRepository
+
+Handles all Cloud Firestore operations.
+
+```kotlin
+@Singleton
+class FirestoreRepository @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
+    fun getAllStoriesFlow(): Flow<List<StoryFirestore>> = callbackFlow {
+        val listener = firestore.collection("stories")
+            .whereEqualTo("published", true)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val stories = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(StoryFirestore::class.java)
+                } ?: emptyList()
+                trySend(stories)
+            }
+        awaitClose { listener.remove() }
+    }
+}
+```
+
+See `data/firebase/FirestoreRepository.kt:15` for the full implementation.
+
+### Real-time Listeners
+
+The `getAllStoriesFlow()` uses Firestore snapshot listeners for real-time updates:
+
+```kotlin
+fun getAllStoriesFlow(): Flow<List<StoryFirestore>> = callbackFlow {
+    val listener = firestore.collection("stories")
+        .whereEqualTo("published", true)
+        .orderBy("createdAt", Query.Direction.DESCENDING)
+        .addSnapshotListener { snapshot, error ->
+            // Handle updates
+            trySend(stories)
+        }
+    awaitClose { listener.remove() }
+}
+```
+
+See `data/firebase/FirestoreRepository.kt:19`.
+
+### Query Examples
+
+#### Get Stories by Community
+
+```kotlin
+suspend fun getStoriesByCommunity(community: String): List<StoryFirestore> {
+    val snapshot = firestore.collection("stories")
+        .whereEqualTo("community", community)
+        .whereEqualTo("published", true)
+        .orderBy("createdAt", Query.Direction.DESCENDING)
+        .get()
+        .await()
+    return snapshot.documents.mapNotNull { doc ->
+        doc.toObject(StoryFirestore::class.java)
+    }
+}
+```
+
+See `data/firebase/FirestoreRepository.kt:64`.
+
+#### Get Stories by Author
+
+```kotlin
+suspend fun getStoriesByAuthor(authorId: String): List<StoryFirestore> {
+    val snapshot = firestore.collection("stories")
+        .whereEqualTo("authorId", authorId)
+        .orderBy("createdAt", Query.Direction.DESCENDING)
+        .get()
+        .await()
+    return snapshot.documents.mapNotNull { doc ->
+        doc.toObject(StoryFirestore::class.java)
+    }
+}
+```
+
+See `data/firebase/FirestoreRepository.kt:81`.
+
+#### Search Stories
+
+Client-side search (Firestore doesn't support full-text search):
+
+```kotlin
+suspend fun searchStories(query: String): List<StoryFirestore> {
+    val snapshot = firestore.collection("stories")
+        .whereEqualTo("published", true)
+        .get()
+        .await()
+
+    val allStories = snapshot.documents.mapNotNull { doc ->
+        doc.toObject(StoryFirestore::class.java)
+    }
+
+    val lowerQuery = query.lowercase()
+    return allStories.filter { story ->
+        story.titleEs.lowercase().contains(lowerQuery) ||
+        story.titleNahuatl.lowercase().contains(lowerQuery) ||
+        story.narratorName.lowercase().contains(lowerQuery) ||
+        story.community.lowercase().contains(lowerQuery) ||
+        story.tags.any { it.lowercase().contains(lowerQuery) }
+    }
+}
+```
+
+See `data/firebase/FirestoreRepository.kt:154`.
+
+### Write Operations
+
+#### Add Story
+
+```kotlin
+suspend fun addStory(story: StoryFirestore): String? {
+    return try {
+        val documentRef = firestore.collection("stories").document()
+        val storyWithId = story.copy(
+            id = documentRef.id,
+            createdAt = Timestamp.now(),
+            updatedAt = Timestamp.now()
+        )
+        documentRef.set(storyWithId).await()
+        documentRef.id
+    } catch (e: Exception) {
+        null
+    }
+}
+```
+
+See `data/firebase/FirestoreRepository.kt:118`.
+
+#### Update Story
+
+```kotlin
+suspend fun updateStory(story: StoryFirestore): Boolean {
+    return try {
+        firestore.collection("stories")
+            .document(story.id)
+            .set(story.copy(updatedAt = Timestamp.now()))
+            .await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+See `data/firebase/FirestoreRepository.kt:133`.
+
+#### Delete Story
+
+```kotlin
+suspend fun deleteStory(storyId: String): Boolean {
+    return try {
+        firestore.collection("stories").document(storyId).delete().await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+See `data/firebase/FirestoreRepository.kt:145`.
+
+## Room Database
+
+Local database for offline caching.
+
+### AppDatabase
+
+```kotlin
+@Database(
+    entities = [StoryEntity::class], 
+    version = 1,
+    exportSchema = false
+)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun storyDao(): StoryDao
+}
+```
+
+See `data/local/AppDatabase.kt:8`.
+
+### StoryDao
+
+Data Access Object for local story operations:
+
+```kotlin
+@Dao
+interface StoryDao {
+    @Query("SELECT * FROM stories")
+    fun getAllStories(): Flow<List<StoryEntity>>
+
+    @Query("SELECT * FROM stories WHERE id = :id")
+    suspend fun getStoryById(id: String): StoryEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertStories(stories: List<StoryEntity>)
+
+    @Delete
+    suspend fun deleteStory(story: StoryEntity)
+}
+```
+
+See `data/local/dao/StoryDao.kt:8`.
+
+### Dependency Injection
+
+Room database is provided via Hilt:
+
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        return Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            "casa_historias_db"
+        ).build()
+    }
+
+    @Provides
+    fun provideStoryDao(database: AppDatabase): StoryDao {
+        return database.storyDao()
+    }
+}
+```
+
+See `di/DatabaseModule.kt:16`.
+
+## Model Conversions
+
+Repositories convert between data models:
+
+### Firestore to Domain
+
+```kotlin
+private fun StoryFirestore.toDomainModel(): Story {
+    return Story(
+        id = this.id,
+        titleEs = this.titleEs,
+        titleNahuatl = this.titleNahuatl,
+        contentEs = this.contentEs,
+        contentNahuatl = this.contentNahuatl,
+        audioUrl = this.audioUrl,
+        imageUrl = this.imageUrl,
+        narratorName = this.narratorName,
+        community = this.community,
+        latitude = this.latitude,
+        longitude = this.longitude,
+        authorId = this.authorId,
+        tags = this.tags,
+        createdAt = this.createdAt.seconds * 1000
+    )
+}
+```
+
+See `data/repository/StoryRepository.kt:88`.
+
+### Domain to Firestore
+
+```kotlin
+private fun Story.toFirestoreModel(authorId: String): StoryFirestore {
+    return StoryFirestore(
+        id = this.id,
+        titleEs = this.titleEs,
+        titleNahuatl = this.titleNahuatl,
+        contentEs = this.contentEs,
+        contentNahuatl = this.contentNahuatl,
+        audioUrl = this.audioUrl,
+        imageUrl = this.imageUrl,
+        narratorName = this.narratorName,
+        community = this.community,
+        authorId = authorId,
+        published = true,
+        latitude = this.latitude,
+        longitude = this.longitude,
+        tags = this.tags
+    )
+}
+```
+
+See `data/repository/StoryRepository.kt:107`.
+
+## Error Handling
+
+All repository methods use try-catch blocks:
+
+```kotlin
+suspend fun getStoryById(id: String): StoryFirestore? {
+    return try {
+        val document = firestore.collection("stories").document(id).get().await()
+        document.toObject(StoryFirestore::class.java)
+    } catch (e: Exception) {
+        null
+    }
+}
+```
+
+Methods return:
+- `null` for single-item failures
+- `emptyList()` for collection failures
+- `false` for boolean operations that fail
+
+## Data Flow Example
+
+1. **UI** calls `viewModel.loadStories()`
+2. **ViewModel** calls `storyRepository.getAllStoriesFlow()`
+3. **StoryRepository** calls `firestoreRepository.getAllStoriesFlow()`
+4. **FirestoreRepository** queries Firestore and returns `Flow<List<StoryFirestore>>`
+5. **StoryRepository** maps to `Flow<List<Story>>` (domain model)
+6. **ViewModel** exposes as `StateFlow<List<Story>>`
+7. **UI** collects and renders
+
+This ensures:
+- Clean separation of concerns
+- Easy testing (mock repositories)
+- Type safety across layers
+- Single source of truth

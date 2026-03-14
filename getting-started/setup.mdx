@@ -1,0 +1,407 @@
+---
+title: "Setup & Configuration"
+description: "Configure Firebase backend and app permissions for Casa de Historias"
+---
+
+# Setup & Configuration
+
+Before you can use Casa de Historias, you need to configure the Firebase backend and grant necessary permissions.
+
+## Firebase Configuration
+
+Casa de Historias uses Firebase for backend services including authentication, data storage, and media hosting.
+
+### Firebase Services Used
+
+The app integrates the following Firebase services:
+
+```kotlin
+// Firebase dependencies in build.gradle.kts
+implementation(platform(libs.firebase.bom))
+implementation(libs.firebase.analytics)
+implementation(libs.firebase.firestore)  // Story data
+implementation(libs.firebase.auth)       // User authentication
+implementation(libs.firebase.storage)    // Images and audio
+```
+
+<CardGroup cols={3}>
+  <Card title="Firestore" icon="database">
+    Stores story content, user profiles, and favorites
+  </Card>
+  
+  <Card title="Authentication" icon="lock">
+    Email/password user authentication
+  </Card>
+  
+  <Card title="Storage" icon="cloud">
+    Hosts story images and audio files
+  </Card>
+</CardGroup>
+
+### Setting Up Firebase (For Developers)
+
+If you're building from source or setting up your own instance:
+
+<Steps>
+  <Step title="Create Firebase Project">
+    1. Go to [Firebase Console](https://console.firebase.google.com/)
+    2. Click **Add Project**
+    3. Name your project (e.g., "Casa de Historias")
+    4. Enable Google Analytics (optional)
+    5. Click **Create Project**
+  </Step>
+  
+  <Step title="Register Android App">
+    1. In Firebase Console, click **Add app** → **Android**
+    2. Enter package name: `com.example.casadehistorias`
+    3. Enter app nickname: "Casa de Historias"
+    4. Download `google-services.json`
+    5. Place file in `app/` directory of project
+  </Step>
+  
+  <Step title="Enable Authentication">
+    1. Go to **Authentication** → **Sign-in method**
+    2. Enable **Email/Password** provider
+    3. Click **Save**
+  </Step>
+  
+  <Step title="Create Firestore Database">
+    1. Go to **Firestore Database** → **Create database**
+    2. Start in **Production mode** (or Test mode for development)
+    3. Choose a region close to your users
+    4. Click **Enable**
+  </Step>
+  
+  <Step title="Setup Cloud Storage">
+    1. Go to **Storage** → **Get Started**
+    2. Start in **Production mode** (or Test mode for development)
+    3. Choose the same region as Firestore
+    4. Click **Done**
+  </Step>
+  
+  <Step title="Configure Security Rules">
+    Set up Firestore and Storage security rules to protect user data. See examples below.
+  </Step>
+</Steps>
+
+### Firestore Security Rules
+
+Recommended security rules for production:
+
+<CodeGroup>
+```javascript Firestore Rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Stories collection
+    match /stories/{storyId} {
+      // Anyone can read published stories
+      allow read: if true;
+      
+      // Only authenticated users can create
+      allow create: if request.auth != null;
+      
+      // Only story author can update/delete
+      allow update, delete: if request.auth != null 
+        && request.auth.uid == resource.data.authorId;
+    }
+    
+    // User profiles
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Users can create/update their own profile
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+      
+      // Favorites subcollection
+      match /favorites/{favoriteId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}
+```
+
+```javascript Storage Rules
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Story images
+    match /stories/{storyId}/{fileName} {
+      // Anyone can read
+      allow read: if true;
+      
+      // Authenticated users can upload (max 5MB)
+      allow write: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024;
+    }
+    
+    // Audio files
+    match /audio/{storyId}/{fileName} {
+      // Anyone can read
+      allow read: if true;
+      
+      // Authenticated users can upload (max 10MB)
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+  }
+}
+```
+</CodeGroup>
+
+<Warning>
+Test mode rules allow unrestricted access. Always use production rules with proper authentication checks before deploying to users.
+</Warning>
+
+## Firebase Data Models
+
+Understanding the data structure helps with setup and troubleshooting.
+
+### Story Document Schema
+
+Stories are stored in Firestore with this structure:
+
+```kotlin
+data class StoryFirestore(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioUrl: String? = null,
+    val imageUrl: String? = null,
+    val narratorName: String,
+    val community: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String,
+    val tags: List<String> = emptyList(),
+    val published: Boolean = true,
+    val createdAt: Timestamp = Timestamp.now()
+)
+```
+
+**Firestore Collection:** `stories`
+
+### User Profile Schema
+
+```kotlin
+data class UserProfile(
+    val userId: String,
+    val email: String,
+    val displayName: String,
+    val community: String,
+    val createdAt: Long
+)
+```
+
+**Firestore Collection:** `users`
+
+### Repository Implementation
+
+The app uses `StoryRepository` to interact with Firebase:
+
+```kotlin
+// Get all stories
+suspend fun getAllStories(): List<Story> {
+    return firestoreRepository.getAllStories()
+        .map { it.toDomainModel() }
+}
+
+// Add new story
+suspend fun addStory(story: Story): String? {
+    val currentUser = authRepository.currentUser
+    return if (currentUser != null) {
+        val storyFirestore = story.toFirestoreModel(currentUser.uid)
+        firestoreRepository.addStory(storyFirestore)
+    } else null
+}
+```
+
+## App Permissions
+
+Casa de Historias requires certain Android permissions to function properly.
+
+### Automatic Permissions
+
+These are granted automatically without user interaction:
+
+<Accordion title="Internet Access">
+  ```xml
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  ```
+  
+  **Purpose:**
+  - Connect to Firebase services
+  - Download story images and audio
+  - Sync data across devices
+</Accordion>
+
+### Runtime Permissions
+
+These require user approval on first use:
+
+<Accordion title="Location (Optional)">
+  ```xml
+  <!-- Permisos para ubicación (MapLibre) -->
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  ```
+  
+  **Purpose:**
+  - Display stories on interactive map
+  - Set location when creating stories
+  - MapLibre mapping functionality
+  
+  **When Requested:**
+  - First time opening the Map screen
+  - When tapping map picker in story creation
+  
+  <Note>
+  The app works fully without location access. Map features will be disabled if permission is denied.
+  </Note>
+</Accordion>
+
+### Managing Permissions
+
+Users can manage permissions after installation:
+
+1. Go to **Settings** → **Apps** → **Casa de Historias**
+2. Tap **Permissions**
+3. Toggle individual permissions on/off
+
+## Initial Configuration
+
+### First Launch Setup
+
+<Steps>
+  <Step title="Open Casa de Historias">
+    Launch the app from your device's app drawer.
+  </Step>
+  
+  <Step title="Welcome Screen">
+    You'll see the welcome screen (`WelcomeScreen.kt`).
+    
+    Tap **Continue** to proceed to login.
+  </Step>
+  
+  <Step title="Create Account">
+    If you don't have an account:
+    1. Tap **Sign Up** on the login screen
+    2. Enter your email and password
+    3. Enter your display name (how you'll appear as a narrator)
+    4. Enter your community name (e.g., "Zongolica", "Tequila")
+    5. Tap **Create Account**
+  </Step>
+  
+  <Step title="Grant Permissions (Optional)">
+    When prompted, grant location permission if you want to use map features.
+    
+    You can also skip this and grant later when needed.
+  </Step>
+  
+  <Step title="Start Exploring">
+    Once logged in, you'll land on the Story List screen where you can browse existing stories.
+  </Step>
+</Steps>
+
+### Navigation Flow
+
+The app follows this navigation structure (from `NavGraph.kt`):
+
+```
+Welcome → Login → Story List (Main)
+            ↓
+         Sign Up → Story List (Main)
+```
+
+**Main Navigation Tabs:**
+- **Discover**: Curated story collections
+- **Stories**: Full story list
+- **Map**: Geographic story view
+- **Favorites**: Saved stories
+- **Profile**: User account and settings
+
+## Offline Configuration
+
+### Room Database Setup
+
+Casa de Historias uses Room for local caching:
+
+```kotlin
+@Database(
+    entities = [StoryEntity::class], 
+    version = 1,
+    exportSchema = false
+)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun storyDao(): StoryDao
+}
+```
+
+**What's Cached:**
+- Story content and metadata
+- Favorite story IDs
+- User profile information
+
+**What Requires Network:**
+- Story images (loaded from Firebase Storage URLs)
+- Audio files (streamed from Firebase Storage)
+- Initial story sync
+- Publishing new stories
+
+<Note>
+The app automatically syncs with Firebase when network becomes available. You don't need to configure offline mode manually.
+</Note>
+
+## Troubleshooting Setup Issues
+
+### Firebase Connection Failed
+
+**Problem:** "Unable to connect to Firebase" error
+
+**Solutions:**
+- Verify `google-services.json` is in the correct location (`app/` directory)
+- Check that package name in Firebase matches `com.example.casadehistorias`
+- Rebuild the project to ensure Google Services plugin runs
+- Check Firebase project status in console
+
+### Authentication Errors
+
+**Problem:** Cannot create account or login
+
+**Solutions:**
+- Verify Email/Password authentication is enabled in Firebase Console
+- Check internet connection
+- Ensure email format is valid
+- Password must meet minimum requirements (usually 6+ characters)
+
+### Stories Not Loading
+
+**Problem:** Story list is empty or won't load
+
+**Solutions:**
+- Check Firestore security rules allow read access
+- Verify stories exist in Firestore `stories` collection
+- Check network connection
+- Try pull-to-refresh on story list screen
+
+### Location Permission Denied
+
+**Problem:** Map features not working
+
+**Solutions:**
+- Grant location permission in app settings
+- Restart the app after granting permission
+- Check device location services are enabled
+- Note: Older Android versions may require additional location settings
+
+## Next Steps
+
+Now that Casa de Historias is configured:
+
+- [Quickstart Guide](/getting-started/quickstart) - Create your first story
+- [Features](/features) - Explore all app capabilities

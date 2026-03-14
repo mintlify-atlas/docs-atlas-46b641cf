@@ -1,0 +1,146 @@
+---
+title: "Browsing Stories"
+description: "Explore and read bilingual legends from the Sierra de Zongolica"
+---
+
+## Story List Screen
+
+The main story list (`StoryListScreen`) displays all published legends in a scrollable list. Each story is presented in a modern card format with:
+
+- **Story title** (Spanish and Nahuatl)
+- **Narrator name** and **community**
+- **Cover image** (if available)
+- **Audio indicator** (play button icon)
+
+<Note>
+Stories are loaded from Firestore in real-time. New stories appear automatically without refreshing.
+</Note>
+
+## Story Card Layout
+
+Each story card shows:
+
+```kotlin
+ModernStoryCard(
+    story = Story(
+        titleNahuatl = "Kuauhtli ipan Tonal",
+        titleEs = "El Águila del Sol",
+        narratorName = "Don Felipe García",
+        community = "Zongolica",
+        imageUrl = "https://...",
+        audioUrl = "https://..."
+    )
+)
+```
+
+<CardGroup cols={2}>
+  <Card title="Bilingual Titles" icon="language">
+    Both Spanish (titleEs) and Nahuatl (titleNahuatl) titles are displayed, preserving the original language
+  </Card>
+  <Card title="Visual Cards" icon="image">
+    High-quality images provide visual context for each legend
+  </Card>
+  <Card title="Audio Indicators" icon="play">
+    A play button icon indicates stories with audio narration
+  </Card>
+  <Card title="Community Tags" icon="location-dot">
+    See which community the story originates from
+  </Card>
+</CardGroup>
+
+## Viewing Story Details
+
+<Steps>
+  <Step title="Tap a story card">
+    Tap any story card to open the full story detail view.
+  </Step>
+  
+  <Step title="Read the full content">
+    The `StoryDetailScreen` displays:
+    - Full bilingual titles
+    - Complete story text in Spanish and Nahuatl
+    - Cover image
+    - Narrator information
+    - Community and location data
+    - Audio playback controls (if available)
+  </Step>
+  
+  <Step title="Navigate back">
+    Use the back button to return to the story list.
+  </Step>
+</Steps>
+
+## Story Detail View
+
+The detail screen shows all story information:
+
+```kotlin
+data class Story(
+    val id: String,
+    val titleEs: String,              // "La Llorona de Zongolica"
+    val titleNahuatl: String,         // "Chikawakatl ipan Zongolika"
+    val contentEs: String,            // Full Spanish text
+    val contentNahuatl: String,       // Full Nahuatl text
+    val audioUrl: String?,            // Audio file URL
+    val imageUrl: String?,            // Cover image URL
+    val narratorName: String,         // "Doña María Hernández"
+    val community: String,            // "Tequila"
+    val latitude: Double?,            // 18.6667
+    val longitude: Double?,           // -97.0000
+    val authorId: String,
+    val tags: List<String>,           // ["leyenda", "naturaleza"]
+    val createdAt: Long
+)
+```
+
+## Loading States
+
+The story list handles three states:
+
+1. **Loading**: Shows a spinner with "Cargando historias..."
+2. **Empty**: Displays "No hay historias aún" when the collection is empty
+3. **Error**: Shows an error message with a "Reintentar" (Retry) button
+
+<Warning>
+If stories fail to load, check your internet connection. The app requires an active connection to fetch stories from Firestore.
+</Warning>
+
+## Features
+
+### Search Stories
+
+Tap the **search icon** in the top bar to open the search screen and filter stories by:
+- Title (Spanish or Nahuatl)
+- Content keywords
+- Community name
+- Narrator name
+
+### Add New Stories
+
+Tap the **floating action button** (+ icon) to create your own story.
+
+<Tip>
+Use the **Discover** tab to browse featured stories, recent additions, and stories organized by community.
+</Tip>
+
+## Bilingual Display
+
+All stories preserve both Spanish and Nahuatl content:
+
+- **Nahuatl titles** appear in italic text with the agua sagrada (water blue) color
+- **Spanish titles** appear in bold white text
+- **Content** can be read in both languages side by side
+
+This bilingual approach helps preserve the indigenous language while making content accessible to Spanish speakers.
+
+## Navigation
+
+From the story list, you can navigate to:
+
+- **Story Detail**: Tap any card
+- **Add Story**: Tap the + FAB
+- **Search**: Tap the search icon
+- **Discover**: Use the bottom navigation
+- **Map**: View stories on an interactive map
+- **Favorites**: Access your saved stories
+- **Profile**: View your account and authored stories

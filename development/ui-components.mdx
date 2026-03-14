@@ -1,0 +1,380 @@
+---
+title: "UI Components"
+description: "Jetpack Compose screens, navigation structure, and theming"
+---
+
+# UI Components
+
+Casa de Historias uses Jetpack Compose for a fully declarative UI with Material 3 design.
+
+## Main Container
+
+The app's root composable manages navigation and bottom navigation bar.
+
+```kotlin
+@Composable
+fun MainContainer() {
+    val navController = rememberNavController()
+    val authViewModel: AuthViewModel = hiltViewModel()
+
+    // Determine start destination based on auth state
+    val startDestination = if (authViewModel.isLoggedIn) {
+        Screen.Discover.route
+    } else {
+        Screen.Welcome.route
+    }
+
+    Scaffold(
+        containerColor = NocheProfunda,
+        bottomBar = {
+            if (showBottomBar) {
+                NavigationBar { /* ... */ }
+            }
+        }
+    ) { padding ->
+        NavGraph(
+            navController = navController,
+            authViewModel = authViewModel,
+            startDestination = startDestination
+        )
+    }
+}
+```
+
+See `ui/MainContainer.kt:39` for the main container implementation.
+
+## Bottom Navigation
+
+The app uses a bottom navigation bar with 5 main sections:
+
+```kotlin
+val bottomNavItems = listOf(
+    BottomNavItem("Explorar", Screen.Discover.route, Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
+    BottomNavItem("Leyendas", Screen.StoryList.route, Icons.Filled.AutoStories, Icons.Outlined.AutoStories),
+    BottomNavItem("Mapa", Screen.StoryMap.route, Icons.Filled.Explore, Icons.Outlined.Explore),
+    BottomNavItem("Favoritos", Screen.Favorites.route, Icons.Filled.Favorite, Icons.Outlined.FavoriteBorder),
+    BottomNavItem("Perfil", Screen.Profile.route, Icons.Filled.Person, Icons.Outlined.Person)
+)
+```
+
+See `ui/MainContainer.kt:50` for navigation items.
+
+### Bottom Navigation Behavior
+
+The bottom bar only shows on main screens:
+
+```kotlin
+val showBottomBar = currentRoute in listOf(
+    Screen.Discover.route,
+    Screen.StoryList.route,
+    Screen.StoryMap.route,
+    Screen.Favorites.route,
+    Screen.Profile.route
+)
+```
+
+Detail screens, auth screens, and secondary screens hide the bottom bar.
+
+## Key Screens
+
+### StoryListScreen
+
+Displays all stories in a scrollable list with modern cards:
+
+```kotlin
+@Composable
+fun StoryListScreen(
+    viewModel: StoryViewModel,
+    onStoryClick: (String) -> Unit = {},
+    onAddStoryClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {}
+) {
+    val stories by viewModel.stories.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    Scaffold(
+        topBar = { /* Top app bar */ },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddStoryClick,
+                containerColor = AguaSagrada,
+                contentColor = NocheProfunda
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Añadir Historia")
+            }
+        }
+    ) { padding ->
+        LazyColumn {
+            items(stories, key = { it.id }) { story ->
+                ModernStoryCard(
+                    story = story,
+                    onClick = { onStoryClick(story.id) }
+                )
+            }
+        }
+    }
+}
+```
+
+See `ui/story/StoryListScreen.kt:36` for the full implementation.
+
+### ModernStoryCard
+
+A card component displaying story information with image background:
+
+```kotlin
+@Composable
+fun ModernStoryCard(
+    story: Story,
+    onClick: () -> Unit = {}
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        shape = RoundedCornerShape(24.dp),
+        onClick = onClick
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background image if available
+            if (!story.imageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = story.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                // Gradient overlay for readability
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    NocheProfunda.copy(alpha = 0.6f),
+                                    NocheProfunda.copy(alpha = 0.95f)
+                                )
+                            )
+                        )
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                // Nahuatl title
+                if (story.titleNahuatl.isNotBlank()) {
+                    Text(
+                        text = story.titleNahuatl,
+                        fontStyle = FontStyle.Italic,
+                        color = AguaSagrada
+                    )
+                }
+                // Spanish title
+                Text(
+                    text = story.titleEs,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = LunaLlena
+                )
+                // Narrator and community
+                Row {
+                    Text(story.narratorName)
+                    Text("•")
+                    Text(story.community)
+                }
+            }
+        }
+    }
+}
+```
+
+See `ui/story/StoryListScreen.kt:194` for the card implementation.
+
+### Authentication Screens
+
+**LoginScreen** and **SignUpScreen** handle user authentication:
+
+- Email/password input fields
+- Error handling and loading states
+- Navigation to signup/login
+- Integration with AuthViewModel
+
+See `ui/auth/LoginScreen.kt` and `ui/auth/SignUpScreen.kt`.
+
+### StoryDetailScreen
+
+Displays full story content with:
+- Cover image
+- Bilingual content (Spanish/Nahuatl)
+- Audio player if available
+- Favorite button
+- Edit button (for story author)
+- Map location if coordinates available
+
+See `ui/story/StoryDetailScreen.kt`.
+
+### AddStoryScreen
+
+Form for creating new stories:
+- Title inputs (Spanish and Nahuatl)
+- Content text areas
+- Image picker
+- Audio recorder/picker
+- Location picker (map)
+- Community selection
+- Tag input
+
+See `ui/story/AddStoryScreen.kt`.
+
+### ProfileScreen
+
+User profile management:
+- Display name and email
+- Community affiliation
+- User's posted stories
+- Settings access
+- Logout button
+
+See `ui/profile/ProfileScreen.kt`.
+
+### Other Screens
+
+- **DiscoverScreen** - Curated discovery feed
+- **DictionaryScreen** - Nahuatl-Spanish dictionary
+- **SearchScreen** - Story search with filters
+- **StoryMapScreen** - Geographic map view of stories
+- **FavoritesScreen** - User's favorited stories
+- **SettingsScreen** - App preferences
+
+## Theming
+
+### Color Palette: "Noche Mística"
+
+Custom dark theme evoking a mystical night in the Sierra de Zongolica:
+
+```kotlin
+// Background: Deep Night Blue
+val NocheProfunda = Color(0xFF0F172A)
+
+// Primary: Bright Turquoise
+val AguaSagrada = Color(0xFF06B6D4)
+val AguaSagradaOscura = Color(0xFF0891B2)
+
+// Accent: Intense Red/Coral
+val FloresCeremoniales = Color(0xFFF43F5E)
+val FloresCeremonialesOscuras = Color(0xFFE11D48)
+
+// Text
+val LunaLlena = Color(0xFFF8FAFC)
+val TextoSecundario = Color(0xFF94A3B8)
+
+// Surfaces
+val FondoTarjeta = Color(0xCC1E293B)
+val SurfaceVariant = Color(0xFF334155)
+```
+
+See `ui/theme/Color.kt:11` for the full color palette.
+
+### Material 3 Color Scheme
+
+```kotlin
+private val CasaDeHistoriasColorScheme = darkColorScheme(
+    primary = AguaSagrada,
+    onPrimary = NocheProfunda,
+    primaryContainer = AguaSagradaOscura,
+    onPrimaryContainer = LunaLlena,
+    secondary = FloresCeremoniales,
+    onSecondary = LunaLlena,
+    background = NocheProfunda,
+    onBackground = LunaLlena,
+    surface = FondoTarjeta,
+    onSurface = LunaLlena
+)
+```
+
+See `ui/theme/Theme.kt:16` for the theme definition.
+
+### Applying the Theme
+
+```kotlin
+@Composable
+fun CasaDeHistoriasTheme(
+    content: @Composable () -> Unit
+) {
+    MaterialTheme(
+        colorScheme = CasaDeHistoriasColorScheme,
+        typography = Typography,
+        content = content
+    )
+}
+```
+
+The theme is applied at the root in `MainActivity.kt:21`:
+
+```kotlin
+setContent {
+    CasaDeHistoriasTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            MainContainer()
+        }
+    }
+}
+```
+
+## Typography
+
+Custom typography using Material 3 defaults with adjustments for readability.
+
+See `ui/theme/Type.kt` for typography definitions.
+
+## State Management
+
+Screens collect state from ViewModels using `collectAsState()`:
+
+```kotlin
+val stories by viewModel.stories.collectAsState()
+val isLoading by viewModel.isLoading.collectAsState()
+val errorMessage by viewModel.errorMessage.collectAsState()
+```
+
+This ensures automatic recomposition when state changes.
+
+## Loading and Error States
+
+Screens handle three states:
+
+1. **Loading** - Show progress indicator
+2. **Error** - Display error message with retry button
+3. **Success** - Render content
+
+Example from StoryListScreen:
+
+```kotlin
+when {
+    isLoading -> {
+        Box(contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = AguaSagrada)
+            Text("Cargando historias...")
+        }
+    }
+    errorMessage != null -> {
+        Column {
+            Text(errorMessage ?: "")
+            Button(onClick = { viewModel.retry() }) {
+                Text("Reintentar")
+            }
+        }
+    }
+    else -> {
+        LazyColumn { /* Render stories */ }
+    }
+}
+```
+
+See `ui/story/StoryListScreen.kt:88` for state handling.

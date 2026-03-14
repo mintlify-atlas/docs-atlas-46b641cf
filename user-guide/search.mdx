@@ -1,0 +1,259 @@
+---
+title: "Search"
+description: "Find stories by title, content, community, or narrator"
+---
+
+## Overview
+
+The Search feature (`SearchScreen` and `SearchViewModel`) allows you to find specific stories by querying titles, content, communities, and narrator names.
+
+<Note>
+Search is accessible from the main story list by tapping the **search icon** in the top app bar.
+</Note>
+
+## Using Search
+
+<Steps>
+  <Step title="Open the search screen">
+    Tap the **search icon** (magnifying glass) in the top bar of the story list.
+  </Step>
+  
+  <Step title="Enter your query">
+    Type your search term in the search field. You can search in Spanish or Nahuatl.
+  </Step>
+  
+  <Step title="View results">
+    Results appear as you type. Stories matching your query are displayed in a scrollable list.
+  </Step>
+  
+  <Step title="Open a story">
+    Tap any search result to view the full story detail.
+  </Step>
+</Steps>
+
+<Tip>
+Search is case-insensitive and searches across multiple fields: titles (Spanish and Nahuatl), content, community names, and narrator names.
+</Tip>
+
+## What You Can Search
+
+### Story Titles
+
+Search matches both Spanish and Nahuatl titles:
+
+```kotlin
+data class Story(
+    val titleEs: String,       // "La Llorona de Zongolica"
+    val titleNahuatl: String,  // "Chikawakatl ipan Zongolika"
+    ...
+)
+```
+
+Example queries:
+- "llorona" - finds "La Llorona de Zongolica"
+- "chikawakatl" - finds stories with Nahuatl titles containing this word
+
+### Story Content
+
+Search looks inside the story text:
+
+```kotlin
+data class Story(
+    val contentEs: String,      // Full Spanish text
+    val contentNahuatl: String, // Full Nahuatl text
+    ...
+)
+```
+
+Example queries:
+- "sierra" - finds stories mentioning the mountains
+- "agua" - finds stories about water
+
+### Community Names
+
+Find stories from specific regions:
+
+```kotlin
+data class Story(
+    val community: String,  // "Zongolica", "Tequila", "Atlanca"
+    ...
+)
+```
+
+Example queries:
+- "Zongolica" - finds all stories from Zongolica
+- "Tequila" - finds stories from Tequila community
+
+### Narrator Names
+
+Search by who told the story:
+
+```kotlin
+data class Story(
+    val narratorName: String,  // "Doña María Hernández"
+    ...
+)
+```
+
+Example queries:
+- "María" - finds stories narrated by people named María
+- "Hernández" - finds stories from narrators with this surname
+
+## SearchViewModel
+
+The search logic is managed by `SearchViewModel`:
+
+```kotlin
+class SearchViewModel @Inject constructor(
+    private val storyRepository: StoryRepository
+) : ViewModel() {
+    
+    val searchResults: StateFlow<List<Story>>
+    val isSearching: StateFlow<Boolean>
+    val searchQuery: StateFlow<String>
+    
+    fun search(query: String)
+    fun clearSearch()
+}
+```
+
+### Key Methods
+
+**`search(query: String)`**: Executes a search
+
+```kotlin
+fun search(query: String) {
+    viewModelScope.launch {
+        _isSearching.value = true
+        _searchQuery.value = query
+        
+        val results = storyRepository.searchStories(query)
+        _searchResults.value = results
+        
+        _isSearching.value = false
+    }
+}
+```
+
+**`clearSearch()`**: Resets the search
+
+```kotlin
+fun clearSearch() {
+    _searchQuery.value = ""
+    _searchResults.value = emptyList()
+}
+```
+
+## Firestore Search
+
+The search is implemented in `FirestoreRepository`:
+
+```kotlin
+suspend fun searchStories(query: String): List<Story> {
+    return firestoreRepository.searchStories(query).map { it.toDomainModel() }
+}
+```
+
+<Warning>
+Firestore doesn't support full-text search out of the box. The current implementation may perform client-side filtering. For large datasets, consider integrating Algolia or Elasticsearch for better search performance.
+</Warning>
+
+## Search Results Display
+
+Results are displayed using the same card layout as the story list:
+
+```kotlin
+LazyColumn {
+    items(searchResults, key = { it.id }) { story ->
+        ModernStoryCard(
+            story = story,
+            onClick = { onStoryClick(story.id) }
+        )
+    }
+}
+```
+
+### Empty Results
+
+If no stories match your query:
+- A message appears: "No se encontraron historias"
+- Suggestions: "Intenta con otras palabras clave"
+
+### Loading State
+
+While searching:
+- A loading indicator appears
+- Results update as the search completes
+
+<Tip>
+Try searching with partial words or different spellings. Nahuatl spellings can vary, so experiment with different queries.
+</Tip>
+
+## Search Tips
+
+### General Tips
+
+- **Be concise**: Use 1-3 keywords for best results
+- **Try both languages**: Search in Spanish and Nahuatl
+- **Use quotation marks**: (if supported) For exact phrase matching
+- **Partial words**: May work depending on implementation
+
+### Examples
+
+**Finding stories about nature:**
+- "naturaleza", "bosque", "río", "montaña"
+
+**Finding stories about specific themes:**
+- "amor", "muerte", "animales", "espíritus"
+
+**Finding stories from a specific narrator:**
+- Enter the narrator's first or last name
+
+**Finding stories from your community:**
+- Enter your community name: "Zongolica", "Tequila", etc.
+
+## Performance Considerations
+
+### Current Implementation
+
+Depending on the search logic:
+- **Client-side filtering**: Fast for small datasets, slow for large collections
+- **Firestore queries**: Limited by Firestore's query capabilities
+
+### Future Improvements
+
+Potential enhancements:
+- Integrate **Algolia** for instant full-text search
+- Add **search suggestions** as you type
+- Implement **filters** (community, narrator, date range)
+- Support **advanced search** (boolean operators, wildcards)
+- Add **search history** to recall previous queries
+
+<Note>
+Search requires an internet connection to query Firestore. Offline search is not currently supported.
+</Note>
+
+## Troubleshooting
+
+<Accordion title="Search returns no results">
+  - Check your spelling (try variations)
+  - Try searching in both Spanish and Nahuatl
+  - Use shorter, more general keywords
+  - Ensure you have an internet connection
+</Accordion>
+
+<Accordion title="Search is slow">
+  - You may have a slow internet connection
+  - Large datasets can slow client-side filtering
+  - Try using more specific keywords to narrow results
+</Accordion>
+
+<Accordion title="Can I search by tags?">
+  Tag-based search may not be implemented yet. Try searching for keywords that would appear in the story content instead.
+</Accordion>
+
+## Privacy
+
+- Search queries are not stored or tracked
+- Your searches are private and not visible to other users
+- Search results respect Firestore security rules (only published stories)

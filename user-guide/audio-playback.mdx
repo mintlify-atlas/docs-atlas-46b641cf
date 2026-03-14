@@ -1,0 +1,209 @@
+---
+title: "Audio Playback"
+description: "Listen to authentic oral storytelling narrations"
+---
+
+## Overview
+
+Casa de Historias uses **Media3** (formerly ExoPlayer) to provide high-quality audio playback for story narrations. Audio brings legends to life with authentic voices from the Sierra de Zongolica.
+
+<Note>
+Not all stories have audio. Look for the **play button icon** on story cards to identify stories with audio narration.
+</Note>
+
+## Finding Stories with Audio
+
+### In the Story List
+
+Stories with audio display a circular play button icon in the bottom right of the card:
+
+```kotlin
+if (!story.audioUrl.isNullOrBlank()) {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(Brush.radialGradient(
+                colors = listOf(AguaSagrada, AguaSagradaOscura)
+            )),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = "Tiene audio",
+            tint = NocheProfunda
+        )
+    }
+}
+```
+
+### In the Discover Tab
+
+The Discover screen has a dedicated **"Con Audio Original"** section showing stories with audio narration:
+
+- Compact cards display story title and narrator
+- Each card includes a play button overlay
+- Tap any card to open the story detail and start playback
+
+<Tip>
+Use the Discover tab's "Con Audio Original" section to quickly find all stories with audio narration.
+</Tip>
+
+## Playing Audio
+
+<Steps>
+  <Step title="Open a story with audio">
+    Tap any story card that displays the play button icon.
+  </Step>
+  
+  <Step title="Locate the audio player">
+    On the story detail screen, the audio player appears near the top or bottom of the content.
+  </Step>
+  
+  <Step title="Control playback">
+    Use the player controls:
+    - **Play/Pause**: Start or stop audio playback
+    - **Seek bar**: Drag to jump to a specific timestamp
+    - **Current time**: See elapsed time and total duration
+  </Step>
+</Steps>
+
+## Media3 Integration
+
+Casa de Historias uses **Media3** (AndroidX Media3) for audio playback:
+
+```kotlin
+// Dependencies in build.gradle.kts
+implementation(libs.media3.exoplayer)      // Core ExoPlayer
+implementation(libs.media3.ui)             // UI components
+implementation(libs.media3.session)        // Media session support
+```
+
+### Why Media3?
+
+- **High compatibility**: Supports MP3, M4A, WAV, and more
+- **Streaming**: Plays audio directly from Firebase Storage URLs without downloading
+- **Buffering**: Handles network conditions gracefully
+- **Background playback**: Continue listening while browsing stories
+- **Low latency**: Starts playback quickly
+
+## Audio Storage
+
+Audio files are stored in Firebase Storage:
+
+```
+gs://your-app.appspot.com/audio/{storyId}/narration.mp3
+```
+
+Each story's audio is stored with:
+- **Unique ID**: Prevents filename conflicts
+- **Public URL**: Accessible via HTTPS
+- **Security rules**: Read access for authenticated users
+
+<Warning>
+Audio files are streamed, not downloaded. Ensure you have a stable internet connection for uninterrupted playback.
+</Warning>
+
+## Audio Formats
+
+### Supported Formats
+
+- **MP3**: Most common, excellent compression (recommended)
+- **M4A**: AAC-encoded, good quality
+- **WAV**: Uncompressed, high quality but large file size
+- **OGG**: Open format with good compression
+
+### Recommended Settings
+
+For uploading audio:
+- **Format**: MP3
+- **Bitrate**: 128 kbps (good balance of quality and file size)
+- **Sample rate**: 44.1 kHz or 48 kHz
+- **Channels**: Mono (sufficient for voice) or Stereo
+- **Maximum duration**: 10 minutes (for user experience)
+- **Maximum file size**: 50 MB
+
+<Tip>
+Use mono recording for voice narration. It reduces file size by 50% with no quality loss for spoken content.
+</Tip>
+
+## Playback Features
+
+### Current Features
+
+- ✅ Play/Pause control
+- ✅ Seek to specific timestamp
+- ✅ Display current time and duration
+- ✅ Loading indicator while buffering
+- ✅ Error handling for network issues
+
+### Future Enhancements
+
+Planned features:
+- Playback speed control (0.5x, 1x, 1.5x, 2x)
+- Skip forward/backward (10 seconds)
+- Background playback with notification controls
+- Download for offline listening
+- Audio visualizer
+
+## Media Session
+
+Media3 provides system-level media controls:
+
+```kotlin
+implementation(libs.media3.session)
+```
+
+This enables:
+- **Lock screen controls**: Play/pause without unlocking
+- **Notification controls**: Playback controls in the notification shade
+- **Bluetooth controls**: Car and headphone button support
+- **System integration**: Appears in system media player
+
+<Note>
+Media session features may be implemented in future updates to provide better control when the app is in the background.
+</Note>
+
+## Troubleshooting
+
+<Accordion title="Audio won't play">
+  - Check your internet connection
+  - Ensure the story has an `audioUrl` (not all stories have audio)
+  - Verify Firebase Storage security rules allow read access
+  - Try closing and reopening the story
+</Accordion>
+
+<Accordion title="Audio keeps buffering">
+  - You may have a slow or unstable internet connection
+  - Wait for the audio to fully buffer before playing
+  - Consider using WiFi instead of mobile data
+</Accordion>
+
+<Accordion title="Audio stops when I navigate away">
+  Background playback may not be fully implemented yet. Keep the story detail screen open while listening.
+</Accordion>
+
+<Accordion title="Can I download audio for offline listening?">
+  Offline audio downloads are not currently available but may be added in a future update.
+</Accordion>
+
+## Best Practices
+
+### For Listeners
+
+- Use headphones for the best audio quality
+- Listen in a quiet environment to appreciate the narration
+- Follow along with the written text to learn Nahuatl pronunciation
+- Share stories with audio to spread oral traditions
+
+### For Contributors
+
+- Record in a quiet space to minimize background noise
+- Speak clearly and at a moderate pace
+- Use a good quality microphone if possible
+- Keep narrations under 10 minutes for best user experience
+- Compress audio to MP3 at 128kbps before uploading
+
+<Tip>
+Audio narration is the heart of oral storytelling. When creating stories, consider adding audio to preserve the authentic voice and emotion of the narrator.
+</Tip>

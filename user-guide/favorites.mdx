@@ -1,0 +1,252 @@
+---
+title: "Favorites"
+description: "Save and organize your favorite stories"
+---
+
+## Overview
+
+The Favorites feature lets you bookmark stories you want to revisit. Favorites are synced to your account and accessible from any device.
+
+<Note>
+You must be logged in to use the Favorites feature. Favorites are stored in your user profile in Firestore.
+</Note>
+
+## Adding Stories to Favorites
+
+<Steps>
+  <Step title="Open a story">
+    Navigate to the story detail screen by tapping any story card.
+  </Step>
+  
+  <Step title="Tap the favorite button">
+    Look for the **heart icon** (usually in the top right). Tap it to add the story to your favorites.
+  </Step>
+  
+  <Step title="Confirmation">
+    The heart icon fills in to indicate the story is now favorited.
+  </Step>
+</Steps>
+
+<Tip>
+You can favorite as many stories as you want. There's no limit to your favorites collection.
+</Tip>
+
+## Removing from Favorites
+
+To remove a story from favorites:
+
+1. Open the story detail screen
+2. Tap the filled **heart icon**
+3. The icon returns to an outline, indicating the story is removed from favorites
+
+You can also remove favorites from the Favorites screen itself.
+
+## Viewing Your Favorites
+
+<Steps>
+  <Step title="Navigate to Favorites">
+    Tap the **Favorites** icon in the bottom navigation bar.
+  </Step>
+  
+  <Step title="Browse your collection">
+    The `FavoritesScreen` displays all stories you've favorited in a scrollable list.
+  </Step>
+  
+  <Step title="Open a story">
+    Tap any favorite to open the full story detail.
+  </Step>
+</Steps>
+
+## Favorites Data Structure
+
+Favorites are stored in your user profile:
+
+```kotlin
+data class UserProfile(
+    val uid: String,
+    val name: String,
+    val email: String,
+    val favoriteStories: List<String> = emptyList(),  // List of story IDs
+    val createdAt: Timestamp = Timestamp.now()
+)
+```
+
+When you favorite a story:
+1. The story's `id` is added to your `favoriteStories` list
+2. The list is updated in Firestore under `users/{uid}`
+3. Changes sync in real-time across devices
+
+## FavoritesViewModel
+
+The `FavoritesViewModel` manages favorite stories:
+
+```kotlin
+class FavoritesViewModel @Inject constructor(
+    private val storyRepository: StoryRepository
+) : ViewModel() {
+    
+    val favorites: StateFlow<List<Story>>
+    
+    fun addToFavorites(storyId: String)
+    fun removeFromFavorites(storyId: String)
+    fun isFavorite(storyId: String): Boolean
+}
+```
+
+### Key Methods
+
+**`addToFavorites(storyId)`**: Adds a story to favorites
+
+```kotlin
+suspend fun addToFavorites(storyId: String): Boolean {
+    val currentUser = authRepository.currentUser
+    return if (currentUser != null) {
+        firestoreRepository.addToFavorites(currentUser.uid, storyId)
+    } else false
+}
+```
+
+**`removeFromFavorites(storyId)`**: Removes a story from favorites
+
+```kotlin
+suspend fun removeFromFavorites(storyId: String): Boolean {
+    val currentUser = authRepository.currentUser
+    return if (currentUser != null) {
+        firestoreRepository.removeFromFavorites(currentUser.uid, storyId)
+    } else false
+}
+```
+
+## Firestore Integration
+
+Favorites are managed in Firestore:
+
+### Adding a Favorite
+
+```kotlin
+firestore.collection("users").document(userId)
+    .update("favoriteStories", FieldValue.arrayUnion(storyId))
+```
+
+### Removing a Favorite
+
+```kotlin
+firestore.collection("users").document(userId)
+    .update("favoriteStories", FieldValue.arrayRemove(storyId))
+```
+
+### Fetching Favorite Stories
+
+```kotlin
+suspend fun getStoriesByIds(ids: List<String>): List<Story> {
+    return firestoreRepository.getStoriesByIds(ids).map { it.toDomainModel() }
+}
+```
+
+<Warning>
+Favorites require an active internet connection. If you're offline, you can view previously loaded favorites, but you can't add or remove favorites until you're back online.
+</Warning>
+
+## Favorites Screen
+
+The `FavoritesScreen` displays your bookmarked stories:
+
+```kotlin
+@Composable
+fun FavoritesScreen(
+    viewModel: FavoritesViewModel,
+    onStoryClick: (String) -> Unit
+) {
+    val favorites by viewModel.favorites.collectAsState()
+    
+    LazyColumn {
+        items(favorites, key = { it.id }) { story ->
+            ModernStoryCard(
+                story = story,
+                onClick = { onStoryClick(story.id) }
+            )
+        }
+    }
+}
+```
+
+### Empty State
+
+If you haven't favorited any stories yet, you'll see:
+
+- A message: "No tienes favoritos aún"
+- Encouragement: "Explora historias y guarda tus favoritas"
+- A button to browse the story list
+
+<Tip>
+Start building your collection by favoriting stories that resonate with you. Your favorites are a personal archive of the legends you cherish most.
+</Tip>
+
+## Use Cases
+
+### Personal Collection
+
+Build a curated collection of stories that are meaningful to you:
+- Stories from your own community
+- Legends you want to share with family
+- Stories you're researching or studying
+- Your favorite narrators' contributions
+
+### Offline Reading
+
+While favorites require internet to sync, you can:
+- Favorite stories while online
+- Access previously loaded favorites when offline (if cached)
+
+### Sharing
+
+Your favorites make it easy to:
+- Quickly find stories to share with others
+- Reference specific legends in conversations
+- Recommend stories to friends
+
+## Real-Time Sync
+
+Favorites sync across devices in real-time:
+
+1. Favorite a story on your phone
+2. The change is saved to Firestore
+3. If you log in on another device, your favorites appear immediately
+4. Removing a favorite updates everywhere
+
+<Note>
+Since favorites are tied to your account, they're preserved even if you reinstall the app. Just log in to restore your collection.
+</Note>
+
+## Troubleshooting
+
+<Accordion title="Favorite button doesn't work">
+  - Ensure you're logged in (check your profile)
+  - Verify your internet connection
+  - Try closing and reopening the story
+  - Check if Firebase is experiencing issues
+</Accordion>
+
+<Accordion title="Favorites disappeared">
+  - Ensure you're logged into the correct account
+  - Check your internet connection to sync from Firestore
+  - Favorites are account-specific; switching accounts will show different favorites
+</Accordion>
+
+<Accordion title="Can't remove a favorite">
+  - Verify your internet connection
+  - Try tapping the heart icon again
+  - Force close and reopen the app
+</Accordion>
+
+## Privacy
+
+Your favorites are private:
+- Only you can see which stories you've favorited
+- Favorites are not visible to other users
+- Story creators cannot see who favorited their stories
+- Firestore security rules prevent unauthorized access
+
+<Tip>
+Use favorites to create a meaningful, personal collection of legends that matter to you and your cultural heritage.
+</Tip>

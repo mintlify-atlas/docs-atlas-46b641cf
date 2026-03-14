@@ -1,0 +1,323 @@
+---
+title: "Contributing Guide"
+description: "How to contribute, setup development environment, and run the Casa de Historias Android app"
+---
+
+# Contributing to Casa de Historias
+
+Thank you for your interest in contributing to Casa de Historias! This guide will help you set up your development environment and get started.
+
+## Prerequisites
+
+### Required Software
+
+- **Android Studio** - Latest stable version (Hedgehog 2023.1.1 or newer)
+- **JDK 17** - Java Development Kit 17
+- **Git** - Version control
+- **Android SDK** - API Level 26-35
+
+### Firebase Account
+
+You'll need access to the Firebase project or create your own for development.
+
+## Development Setup
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/your-org/casa-de-historias-android.git
+cd casa-de-historias-android
+```
+
+### 2. Open in Android Studio
+
+1. Launch Android Studio
+2. Select **File → Open**
+3. Navigate to the cloned repository
+4. Click **OK**
+5. Wait for Gradle sync to complete
+
+### 3. Configure Firebase
+
+#### Option A: Use Development Firebase Project
+
+1. Contact the maintainers for development `google-services.json`
+2. Place file in `app/` directory
+
+#### Option B: Create Your Own Firebase Project
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create new project
+3. Add Android app with package: `com.example.casadehistorias`
+4. Download `google-services.json`
+5. Place in `app/` directory
+6. Enable these services:
+   - Authentication (Email/Password)
+   - Cloud Firestore
+   - Storage
+
+See [Firebase Setup](/development/firebase-setup) for detailed instructions.
+
+### 4. Sync Project
+
+```bash
+# In Android Studio
+File → Sync Project with Gradle Files
+```
+
+Or use the Gradle sync button in the toolbar.
+
+### 5. Run the App
+
+#### On Emulator
+
+1. Open **Device Manager** in Android Studio
+2. Create new virtual device (recommended: Pixel 6, API 35)
+3. Click **Run** button or press `Shift + F10`
+4. Select your emulator
+
+#### On Physical Device
+
+1. Enable **Developer Options** on your Android device
+2. Enable **USB Debugging**
+3. Connect device via USB
+4. Click **Run** and select your device
+
+**Minimum Android Version**: Android 8.0 (API 26)
+
+## Project Structure
+
+```
+app/src/main/java/com/example/casadehistorias/
+├── data/
+│   ├── firebase/      # Firebase repositories
+│   ├── local/         # Room database
+│   └── repository/    # Data repositories
+├── domain/
+│   └── model/         # Domain models
+├── ui/
+│   ├── auth/          # Authentication screens
+│   ├── story/         # Story screens
+│   ├── navigation/    # Navigation graph
+│   └── theme/         # App theming
+├── di/                # Hilt modules
+├── MainActivity.kt
+└── CasaDeHistoriasApp.kt
+```
+
+See [Architecture](/development/architecture) for details.
+
+## Building the Project
+
+### Debug Build
+
+```bash
+./gradlew assembleDebug
+```
+
+Output: `app/build/outputs/apk/debug/app-debug.apk`
+
+### Release Build
+
+```bash
+./gradlew assembleRelease
+```
+
+<Note>
+Release builds require a signing key. For development, use debug builds.
+</Note>
+
+## Running Tests
+
+### Unit Tests
+
+```bash
+./gradlew test
+```
+
+### Instrumented Tests
+
+```bash
+./gradlew connectedAndroidTest
+```
+
+Requires a connected device or running emulator.
+
+## Code Style
+
+We follow Kotlin coding conventions. See [Code Style Guide](/development/code-style) for details.
+
+### Key Guidelines
+
+- **4 spaces** for indentation (no tabs)
+- **120 characters** max line length
+- **kotlinx.coroutines** for asynchronous operations
+- **Jetpack Compose** for all UI
+- **Hilt** for dependency injection
+
+### Auto-formatting
+
+Android Studio can auto-format code:
+
+```
+Code → Reformat Code (Ctrl+Alt+L / Cmd+Option+L)
+```
+
+## Development Workflow
+
+### 1. Create a Branch
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+Branch naming:
+- `feature/` - New features
+- `fix/` - Bug fixes
+- `docs/` - Documentation updates
+- `refactor/` - Code refactoring
+
+### 2. Make Changes
+
+- Write clear, focused commits
+- Follow code style guidelines
+- Add tests for new functionality
+- Update documentation as needed
+
+### 3. Test Your Changes
+
+```bash
+# Run tests
+./gradlew test
+
+# Run app and verify
+./gradlew installDebug
+```
+
+### 4. Commit Changes
+
+```bash
+git add .
+git commit -m "feat: add story search functionality"
+```
+
+Commit message format:
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `docs:` - Documentation
+- `style:` - Formatting
+- `refactor:` - Code restructuring
+- `test:` - Tests
+- `chore:` - Maintenance
+
+### 5. Push and Create Pull Request
+
+```bash
+git push origin feature/your-feature-name
+```
+
+Then create a Pull Request on GitHub with:
+- Clear description of changes
+- Screenshots (for UI changes)
+- Link to related issues
+
+## Common Development Tasks
+
+### Adding a New Screen
+
+1. Create Composable in `ui/` package
+2. Add route to `Screen` sealed class (`ui/navigation/NavGraph.kt:27`)
+3. Add composable to `NavGraph` (`ui/navigation/NavGraph.kt:49`)
+4. Update navigation calls
+
+See [Navigation](/development/navigation) for details.
+
+### Adding a New Data Field
+
+1. Update `Story` domain model (`domain/model/Story.kt:3`)
+2. Update `StoryFirestore` model (`data/firebase/model/StoryFirestore.kt:6`)
+3. Update `StoryEntity` if needed (`data/local/entities/StoryEntity.kt:7`)
+4. Update conversion functions in `StoryRepository.kt`
+5. Update UI to display/edit new field
+
+See [Data Models](/development/data-model) for details.
+
+### Adding a New Repository Method
+
+1. Add method to `FirestoreRepository` or `StorageRepository`
+2. Add corresponding method to `StoryRepository`
+3. Inject in ViewModel
+4. Call from UI
+
+See [Data Layer](/development/data-layer) for details.
+
+## Debugging
+
+### Viewing Logs
+
+```bash
+# In Android Studio
+View → Tool Windows → Logcat
+```
+
+Filter by:
+- Package: `com.example.casadehistorias`
+- Tag: `CasaDeHistorias`
+
+### Firebase Debugging
+
+1. **Authentication**: Firebase Console → Authentication → Users
+2. **Firestore**: Firebase Console → Firestore Database → Data
+3. **Storage**: Firebase Console → Storage → Files
+
+### Common Issues
+
+<Accordion title="Gradle sync fails">
+  - Check internet connection
+  - Invalidate caches: **File → Invalidate Caches → Invalidate and Restart**
+  - Update Android Studio to latest version
+</Accordion>
+
+<Accordion title="App crashes on launch">
+  - Check Logcat for stack trace
+  - Verify `google-services.json` is present
+  - Clean and rebuild: **Build → Clean Project** then **Build → Rebuild Project**
+</Accordion>
+
+<Accordion title="Firebase auth not working">
+  - Enable Email/Password in Firebase Console
+  - Check SHA-1 fingerprint is added to Firebase project
+  - Verify `google-services.json` is up to date
+</Accordion>
+
+<Accordion title="Compose preview not showing">
+  - Invalidate caches and restart Android Studio
+  - Check preview annotations are correct
+  - Build project first
+</Accordion>
+
+## Getting Help
+
+- **GitHub Issues**: Report bugs and request features
+- **Discussions**: Ask questions and share ideas
+- **Documentation**: Check [developer docs](/development/architecture)
+
+## Code Review Process
+
+1. **Automated checks** run on all PRs
+2. **Maintainer review** - At least one approval required
+3. **Testing** - Verify changes work as expected
+4. **Merge** - Squash and merge to main branch
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the same license as the project.
+
+## Questions?
+
+Feel free to:
+- Open a GitHub Discussion
+- Comment on relevant issues
+- Reach out to maintainers
+
+Thank you for contributing to preserving and sharing indigenous stories!

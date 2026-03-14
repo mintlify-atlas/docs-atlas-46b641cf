@@ -1,0 +1,290 @@
+---
+title: "My Stories"
+description: "Manage the stories you've authored"
+---
+
+## Overview
+
+The "My Stories" section displays all legends you've created. You can view, edit, or delete your authored stories from this page.
+
+<Note>
+Only stories where you are the author (authorId matches your user ID) appear in My Stories.
+</Note>
+
+## Accessing My Stories
+
+<Steps>
+  <Step title="Go to your profile">
+    Tap the **Profile** icon in the bottom navigation.
+  </Step>
+  
+  <Step title="Open My Stories">
+    Tap **Mis Historias** (My Stories) to view all stories you've authored.
+  </Step>
+</Steps>
+
+Alternatively:
+- From your profile, your story count is displayed
+- Tapping the count opens My Stories
+
+## Viewing Your Stories
+
+Your authored stories are displayed in a list:
+
+```kotlin
+suspend fun getMyStories(): List<Story> {
+    val currentUser = authRepository.currentUser ?: return emptyList()
+    return getStoriesByAuthor(currentUser.uid)
+}
+```
+
+Each story card shows:
+- **Title** (Spanish and Náhuatl)
+- **Narrator name**
+- **Community**
+- **Cover image** (if available)
+- **Audio indicator** (if audio is included)
+- **Creation date**
+- **Edit and delete actions**
+
+<Tip>
+Stories are sorted by creation date, with the most recent at the top.
+</Tip>
+
+## Editing Stories
+
+<Steps>
+  <Step title="Select a story">
+    From My Stories, tap the **edit icon** (pencil) on any story card.
+  </Step>
+  
+  <Step title="Open Edit Story screen">
+    The `EditStoryScreen` loads with the story's current data pre-filled.
+  </Step>
+  
+  <Step title="Make changes">
+    Edit any field:
+    - Titles (Spanish, Náhuatl)
+    - Content (Spanish, Náhuatl)
+    - Narrator name
+    - Community
+    - Upload new image or audio
+    - Update location coordinates
+    - Modify tags
+  </Step>
+  
+  <Step title="Save changes">
+    Tap **Guardar Cambios** (Save Changes) to update the story in Firestore.
+  </Step>
+</Steps>
+
+### Edit Story Navigation
+
+The edit flow:
+
+```kotlin
+Screen.EditStory.createRoute(storyId)
+
+// Navigation from story detail or my stories list
+navController.navigate(Screen.EditStory.createRoute(storyId))
+```
+
+<Note>
+Editing a story updates it immediately for all users. Changes are synced to Firestore in real-time.
+</Note>
+
+## EditStoryScreen
+
+The edit screen provides:
+
+- Pre-filled form with current story data
+- Same fields as Add Story screen
+- **Save Changes** button to update
+- **Cancel** button to discard changes
+- Validation to ensure required fields are filled
+
+```kotlin
+@Composable
+fun EditStoryScreen(
+    story: Story,
+    onNavigateBack: () -> Unit
+) {
+    // Form fields pre-populated with story data
+    var titleEs by remember { mutableStateOf(story.titleEs) }
+    var titleNahuatl by remember { mutableStateOf(story.titleNahuatl) }
+    var contentEs by remember { mutableStateOf(story.contentEs) }
+    // ... other fields
+    
+    // Save changes
+    Button(onClick = {
+        viewModel.updateStory(story.copy(
+            titleEs = titleEs,
+            titleNahuatl = titleNahuatl,
+            contentEs = contentEs,
+            // ... updated fields
+        ))
+        onNavigateBack()
+    }) {
+        Text("Guardar Cambios")
+    }
+}
+```
+
+<Warning>
+Editing a story doesn't create a new version. The original is overwritten. Make sure your changes are intentional.
+</Warning>
+
+## Deleting Stories
+
+<Steps>
+  <Step title="Select a story">
+    From My Stories, tap the **delete icon** (trash bin) on the story you want to remove.
+  </Step>
+  
+  <Step title="Confirm deletion">
+    A confirmation dialog appears: "Are you sure you want to delete this story?"
+  </Step>
+  
+  <Step title="Confirm">
+    Tap **Eliminar** (Delete) to permanently remove the story.
+  </Step>
+</Steps>
+
+### Deletion Process
+
+```kotlin
+suspend fun deleteStory(storyId: String): Boolean {
+    return firestoreRepository.deleteStory(storyId)
+}
+```
+
+When you delete a story:
+
+1. The story document is removed from Firestore
+2. Associated media (images, audio) may be deleted from Firebase Storage
+3. The story disappears from:
+   - Main story list
+   - Discover tab
+   - Map view
+   - Search results
+   - Other users' favorites (if favorited)
+
+<Warning>
+Deletion is permanent. You cannot recover a deleted story. Make sure you want to remove it before confirming.
+</Warning>
+
+## Story Ownership
+
+Only you can edit or delete stories you authored:
+
+```kotlin
+// Story ownership check
+val isOwner = story.authorId == currentUser?.uid
+
+if (isOwner) {
+    // Show edit/delete actions
+    IconButton(onClick = { onEditClick() }) {
+        Icon(Icons.Default.Edit, contentDescription = "Editar")
+    }
+    IconButton(onClick = { onDeleteClick() }) {
+        Icon(Icons.Default.Delete, contentDescription = "Eliminar")
+    }
+}
+```
+
+<Note>
+Firestore security rules enforce ownership. Even if someone tries to edit your story via API, the request will be rejected.
+</Note>
+
+## Story Statistics
+
+In My Stories, you might see:
+
+- **Total stories**: Number of stories you've authored
+- **With audio**: Count of stories with audio narration
+- **With location**: Count of stories with geographic coordinates
+- **Total favorites**: How many times your stories have been favorited by others
+
+<Tip>
+Aim to add audio and location data to your stories. They provide richer experiences and appear in more discovery features.
+</Tip>
+
+## Firestore Security Rules
+
+Your stories are protected:
+
+```javascript
+// Firestore security rules
+match /stories/{storyId} {
+  // Anyone can read published stories
+  allow read: if resource.data.published == true;
+  
+  // Only the author can update or delete
+  allow update, delete: if request.auth.uid == resource.data.authorId;
+  
+  // Authenticated users can create stories
+  allow create: if request.auth != null;
+}
+```
+
+## Best Practices
+
+### Content Management
+
+- **Review before publishing**: Proofread your stories
+- **Update as needed**: Correct errors or add missing information
+- **Keep stories relevant**: Delete outdated or duplicate content
+- **Add media**: Enhance stories with images and audio
+
+### Editing Guidelines
+
+- **Preserve authenticity**: Don't change the core narrative
+- **Fix typos**: Correct spelling and grammar errors
+- **Add context**: Include narrator, community, and location data
+- **Update translations**: Ensure Spanish and Náhuatl versions match
+
+<Note>
+If you make significant changes to a story (e.g., changing the narrator), consider creating a new story instead of editing the original.
+</Note>
+
+## Troubleshooting
+
+<Accordion title="My Stories is empty">
+  - Ensure you've created at least one story
+  - Check that you're logged into the correct account
+  - Verify your internet connection to sync from Firestore
+</Accordion>
+
+<Accordion title="Can't edit a story">
+  - Ensure you're the author (authorId matches your uid)
+  - Check your internet connection
+  - Verify you're logged in
+  - Try force-closing and reopening the app
+</Accordion>
+
+<Accordion title="Can't delete a story">
+  - Only the author can delete stories
+  - Check your internet connection
+  - Firestore security rules prevent unauthorized deletion
+</Accordion>
+
+<Accordion title="Edited changes don't appear">
+  - Wait a few seconds for Firestore to sync
+  - Pull to refresh the story list
+  - Check your internet connection
+  - The story may have failed validation (check for required fields)
+</Accordion>
+
+## Future Features
+
+Planned enhancements:
+
+- **Draft mode**: Save stories as drafts before publishing
+- **Version history**: View previous versions of edited stories
+- **Collaboration**: Allow co-authors to edit stories together
+- **Analytics**: See view counts, favorites, and engagement metrics
+- **Bulk actions**: Edit or delete multiple stories at once
+
+<Tip>
+Treat your authored stories as a portfolio. Keep them updated, accurate, and reflective of the cultural heritage you're preserving.
+</Tip>

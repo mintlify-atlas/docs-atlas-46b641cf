@@ -1,0 +1,123 @@
+---
+title: "Authentication"
+description: "Sign up and log in to Casa de Historias"
+---
+
+## Overview
+
+Casa de Historias uses Firebase Authentication to manage user accounts. All users must create an account to contribute stories, add favorites, and access their personal story collection.
+
+## Creating an Account
+
+<Steps>
+  <Step title="Open the Sign Up screen">
+    When you first launch the app, tap **Regístrate** (Sign Up) from the login screen.
+  </Step>
+  
+  <Step title="Enter your information">
+    Fill in the required fields:
+    - **Nombre** (Name): Your display name
+    - **Correo electrónico** (Email): A valid email address
+    - **Contraseña** (Password): Minimum 6 characters
+    - **Confirmar contraseña** (Confirm Password): Must match password
+  </Step>
+  
+  <Step title="Complete registration">
+    Tap **Crear Cuenta** to create your account. You'll be automatically logged in and taken to the story list.
+  </Step>
+</Steps>
+
+<Note>
+Your email address is used for authentication and cannot be changed later. Choose a valid email you have access to.
+</Note>
+
+## Logging In
+
+If you already have an account:
+
+<Steps>
+  <Step title="Enter credentials">
+    On the login screen, enter your **email** and **password**.
+  </Step>
+  
+  <Step title="Sign in">
+    Tap **Iniciar Sesión** to log in. You'll be taken to the main story list.
+  </Step>
+</Steps>
+
+### Password Requirements
+
+- Minimum length: 6 characters
+- No special character requirements
+- Case-sensitive
+
+<Warning>
+Passwords are encrypted and stored securely by Firebase Auth. Casa de Historias never stores your password in plain text.
+</Warning>
+
+## Authentication Flow
+
+The app uses `AuthViewModel` to manage authentication state:
+
+```kotlin
+// AuthViewModel states
+sealed class AuthState {
+    object Idle : AuthState()
+    object Loading : AuthState()
+    data class Authenticated(val user: FirebaseUser) : AuthState()
+    data class Error(val message: String) : AuthState()
+}
+```
+
+When you sign in successfully, the app:
+1. Creates or updates your user profile in Firestore
+2. Stores your authentication token locally
+3. Navigates to the main story list
+4. Enables favorites and story creation features
+
+## User Profile
+
+After authentication, your profile includes:
+
+```kotlin
+data class UserProfile(
+    val uid: String,
+    val name: String,
+    val email: String,
+    val favoriteStories: List<String> = emptyList(),
+    val createdAt: Timestamp = Timestamp.now()
+)
+```
+
+## Troubleshooting
+
+<Accordion title="Error: Email already in use">
+  This email is already registered. Use the login screen instead, or use a different email address.
+</Accordion>
+
+<Accordion title="Error: Invalid email format">
+  Enter a valid email address in the format: `user@example.com`
+</Accordion>
+
+<Accordion title="Error: Weak password">
+  Your password must be at least 6 characters long.
+</Accordion>
+
+<Accordion title="Can't log in with correct credentials">
+  - Verify your email and password are correct (passwords are case-sensitive)
+  - Check your internet connection
+  - Wait a few minutes and try again if Firebase is experiencing issues
+</Accordion>
+
+## Security
+
+Casa de Historias takes security seriously:
+
+- Passwords are encrypted by Firebase Authentication
+- Authentication tokens expire after a period of inactivity
+- User data is protected by Firestore security rules
+- Only authenticated users can create or edit stories
+
+<Tip>
+Stay logged in by using the app regularly. If you're logged out, simply enter your credentials again.
+</Tip>

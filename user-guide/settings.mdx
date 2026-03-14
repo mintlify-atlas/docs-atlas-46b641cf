@@ -1,0 +1,281 @@
+---
+title: "Settings"
+description: "Configure app preferences and options"
+---
+
+## Overview
+
+The Settings screen (`SettingsScreen`) allows you to customize your Casa de Historias experience. Access app preferences, privacy options, and account management.
+
+<Note>
+Settings are accessible from your profile. Tap **Configuración** (Settings) on the profile screen.
+</Note>
+
+## Accessing Settings
+
+<Steps>
+  <Step title="Open your profile">
+    Tap the **Profile** icon in the bottom navigation.
+  </Step>
+  
+  <Step title="Navigate to settings">
+    Tap **Configuración** or the **settings icon** to open the settings screen.
+  </Step>
+</Steps>
+
+```kotlin
+// Navigation to settings
+onNavigateToSettings = {
+    navController.navigate(Screen.Settings.route)
+}
+```
+
+## Settings Categories
+
+Settings might be organized into categories:
+
+<CardGroup cols={2}>
+  <Card title="App Preferences" icon="sliders">
+    Language, theme, and display options
+  </Card>
+  <Card title="Privacy" icon="shield">
+    Data sharing, location permissions, analytics
+  </Card>
+  <Card title="Notifications" icon="bell">
+    Push notifications and alerts
+  </Card>
+  <Card title="Account" icon="user">
+    Password, email, account deletion
+  </Card>
+</CardGroup>
+
+## App Preferences
+
+### Language Settings
+
+**App Language**:
+- Spanish (Español)
+- Náhuatl (if interface is translated)
+- Automatic (system default)
+
+**Story Display**:
+- Show Spanish first
+- Show Náhuatl first
+- Show both side-by-side
+
+<Tip>
+Set story display preferences to prioritize the language you're learning or prefer reading.
+</Tip>
+
+### Theme Settings
+
+**Color Theme**:
+- **Noche Mística** (Mystical Night - default dark theme)
+- Light mode (if implemented)
+- System default (follow device theme)
+
+**Accent Color**:
+- Agua Sagrada (Sacred Water - teal/cyan)
+- Custom color options
+
+<Note>
+Casa de Historias uses a dark "Noche Mística" theme by default, inspired by evening storytelling traditions.
+</Note>
+
+### Display Options
+
+**Text Size**:
+- Small
+- Medium (default)
+- Large
+- Extra Large
+
+**Font**:
+- Default system font
+- Serif (for a traditional reading experience)
+
+**List View**:
+- Card view (default)
+- Compact list
+- Grid view
+
+## Privacy Settings
+
+### Location
+
+**Location Permissions**:
+- Allow (show current location on map)
+- Deny (map works without current location)
+
+**Location Data in Stories**:
+- Always include location when creating stories
+- Ask each time
+- Never include location
+
+<Warning>
+Location permissions can be managed in your device settings. Denying location won't affect core app functionality.
+</Warning>
+
+### Data Sharing
+
+**Analytics**:
+- Enable anonymous usage statistics
+- Disable analytics
+
+**Crash Reports**:
+- Send crash reports to help improve the app
+- Don't send crash reports
+
+<Note>
+Casa de Historias respects your privacy. Analytics are anonymous and never include personal information.
+</Note>
+
+## Notifications
+
+### Push Notifications
+
+**New Stories**:
+- Notify when new stories are published
+- From specific communities only
+- Disabled
+
+**Favorites**:
+- Notify when favorited stories are updated
+- Disabled
+
+**Account**:
+- Security alerts (e.g., password changes)
+- Always enabled for security
+
+<Tip>
+Enable "New Stories" notifications to discover fresh content as soon as it's published.
+</Tip>
+
+## Account Management
+
+### Password
+
+**Change Password**:
+1. Enter current password
+2. Enter new password (minimum 6 characters)
+3. Confirm new password
+4. Save changes
+
+```kotlin
+// Password change via Firebase Auth
+authViewModel.updatePassword(newPassword)
+```
+
+<Warning>
+Changing your password logs you out on all devices. You'll need to log in again with your new password.
+</Warning>
+
+### Email
+
+**Email Address**: Displayed but cannot be changed
+- Email is tied to Firebase Authentication
+- To change email, you need to create a new account
+
+### Account Deletion
+
+**Delete Account**:
+1. Tap **Eliminar Cuenta** (Delete Account)
+2. Confirm deletion (requires password reauthentication)
+3. Choose what happens to your stories:
+   - Delete all my stories
+   - Keep stories (remove authorship)
+4. Confirm final deletion
+
+<Warning>
+Account deletion is permanent. You cannot recover your account, favorites, or profile after deletion.
+</Warning>
+
+## Storage Settings
+
+### Cache
+
+**Clear Cache**:
+- Remove cached images and data
+- Frees up storage space
+- Doesn't delete your stories or favorites
+
+**Cache Size**: Display current cache size
+
+### Offline Data
+
+**Download for Offline**:
+- Download favorite stories for offline reading
+- Download audio files for offline playback
+- Manage downloaded content
+
+<Note>
+Offline features may not be fully implemented yet. Check for updates.
+</Note>
+
+## About
+
+### App Information
+
+- **Version**: Current app version (e.g., 1.0.0)
+- **Build**: Build number
+- **License**: Open source license information
+- **Privacy Policy**: Link to privacy policy
+- **Terms of Service**: Link to terms
+
+### Support
+
+- **Help Center**: FAQs and guides
+- **Contact Support**: Email or contact form
+- **Report a Bug**: Submit bug reports
+- **Feature Requests**: Suggest new features
+
+### Credits
+
+- **Developers**: App development team
+- **Contributors**: Community contributors
+- **Translators**: Náhuatl language collaborators
+- **Acknowledgments**: Cultural advisors and narrators
+
+<Tip>
+Check the About section for attribution, credits, and to learn about the people behind Casa de Historias.
+</Tip>
+
+## Defaults
+
+**Reset Settings**:
+- Restore all settings to default values
+- Doesn't affect your account, stories, or favorites
+- Only resets preferences
+
+## Troubleshooting
+
+<Accordion title="Settings won't save">
+  - Check your internet connection (some settings sync to Firestore)
+  - Ensure you're logged in
+  - Try force-closing and reopening the app
+</Accordion>
+
+<Accordion title="Can't change language">
+  Language changes may require an app restart. Close and reopen the app after changing language settings.
+</Accordion>
+
+<Accordion title="Notifications don't work">
+  - Check device notification permissions in system settings
+  - Ensure notifications are enabled in app settings
+  - Verify you have an active internet connection
+</Accordion>
+
+<Accordion title="Theme doesn't change">
+  Some theme changes require restarting the app. Close and reopen Casa de Historias.
+</Accordion>
+
+## Best Practices
+
+- **Regular backups**: While your data is in Firestore, consider exporting your stories periodically
+- **Strong password**: Use a unique, strong password for your account
+- **Privacy first**: Review privacy settings and adjust to your comfort level
+- **Stay updated**: Keep the app updated for new features and security improvements
+
+<Note>
+Settings are stored locally on your device. If you reinstall the app, you'll need to configure settings again.
+</Note>

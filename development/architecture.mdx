@@ -1,0 +1,203 @@
+---
+title: "Architecture"
+description: "MVVM architecture pattern with Jetpack Compose, Hilt dependency injection, and layered structure"
+---
+
+# Architecture
+
+Casa de Historias follows the **MVVM (Model-View-ViewModel)** architecture pattern with a clean separation of concerns across three main layers.
+
+## Architecture Overview
+
+The app is structured in three distinct layers:
+
+```
+app/src/main/java/com/example/casadehistorias/
+├── data/           # Data Layer
+│   ├── firebase/   # Firebase data sources
+│   ├── local/      # Room database
+│   └── repository/ # Repository pattern implementations
+├── domain/         # Domain Layer
+│   └── model/      # Domain models
+├── ui/             # Presentation Layer
+│   ├── screens/    # Composable screens
+│   ├── navigation/ # Navigation graph
+│   └── theme/      # Theming
+└── di/             # Dependency Injection modules
+```
+
+## Data Layer
+
+The data layer handles all data operations and is split into:
+
+### Firebase Data Sources
+- **AuthRepository** (`data/firebase/AuthRepository.kt:16`) - Authentication with Firebase Auth
+- **FirestoreRepository** (`data/firebase/FirestoreRepository.kt:15`) - Cloud data storage
+- **StorageRepository** (`data/firebase/StorageRepository.kt:10`) - Media file uploads
+
+### Local Data Sources
+- **Room Database** (`data/local/AppDatabase.kt:13`) - Offline caching
+- **StoryDao** (`data/local/dao/StoryDao.kt:8`) - Database access object
+- **StoryEntity** (`data/local/entities/StoryEntity.kt:7`) - Local database entity
+
+### Repository Pattern
+
+```kotlin
+@Singleton
+class StoryRepository @Inject constructor(
+    private val firestoreRepository: FirestoreRepository,
+    private val authRepository: AuthRepository
+) {
+    fun getAllStoriesFlow(): Flow<List<Story>> =
+        firestoreRepository.getAllStoriesFlow().map { stories ->
+            stories.map { it.toDomainModel() }
+        }
+
+    suspend fun getAllStories(): List<Story> {
+        return firestoreRepository.getAllStories().map { it.toDomainModel() }
+    }
+}
+```
+
+See `data/repository/StoryRepository.kt:13` for the full implementation.
+
+## Domain Layer
+
+The domain layer contains business logic and domain models:
+
+```kotlin
+data class Story(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioUrl: String?,
+    val imageUrl: String?,
+    val narratorName: String,
+    val community: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = 0L
+)
+```
+
+See `domain/model/Story.kt:3` for the domain model definition.
+
+## Presentation Layer (UI)
+
+The UI layer uses **Jetpack Compose** for declarative UI with the following components:
+
+### ViewModels
+
+ViewModels expose UI state as `StateFlow` and handle user interactions:
+
+```kotlin
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
+    private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
+    val authState: StateFlow<AuthState> = _authState.asStateFlow()
+
+    fun signIn(email: String, password: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            val result = authRepository.signInWithEmailAndPassword(email, password)
+            // Handle result...
+        }
+    }
+}
+```
+
+See `ui/auth/AuthViewModel.kt:16` for authentication view model.
+
+### Screens
+
+Composable screens consume ViewModel state and render UI:
+
+- **StoryListScreen** (`ui/story/StoryListScreen.kt:36`) - Display all stories
+- **StoryDetailScreen** - View individual story details
+- **AddStoryScreen** - Create new stories
+- **LoginScreen** / **SignUpScreen** - Authentication flows
+- **ProfileScreen** - User profile management
+
+## Dependency Injection with Hilt
+
+Hilt provides compile-time dependency injection. The app uses two main modules:
+
+### FirebaseModule
+
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object FirebaseModule {
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+
+    @Provides
+    @Singleton
+    fun provideFirebaseFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
+
+    @Provides
+    @Singleton
+    fun provideFirebaseStorage(): FirebaseStorage = FirebaseStorage.getInstance()
+}
+```
+
+See `di/FirebaseModule.kt:14` for Firebase dependencies.
+
+### DatabaseModule
+
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        return Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            "casa_historias_db"
+        ).build()
+    }
+
+    @Provides
+    fun provideStoryDao(database: AppDatabase): StoryDao {
+        return database.storyDao()
+    }
+}
+```
+
+See `di/DatabaseModule.kt:16` for Room database dependencies.
+
+## Application Entry Point
+
+The app initializes Hilt at the application level:
+
+```kotlin
+@HiltAndroidApp
+class CasaDeHistoriasApp : Application()
+```
+
+See `CasaDeHistoriasApp.kt:6` for the application class.
+
+## Key Architectural Principles
+
+1. **Unidirectional Data Flow** - Data flows from repositories to ViewModels to UI
+2. **Single Source of Truth** - Repository layer coordinates between local and remote data
+3. **Separation of Concerns** - Each layer has distinct responsibilities
+4. **Dependency Inversion** - High-level modules depend on abstractions, not concrete implementations
+5. **Reactive Programming** - Use of Kotlin Flows for reactive data streams
+
+## Benefits of This Architecture
+
+- **Testability** - Each layer can be tested independently
+- **Maintainability** - Clear separation makes code easier to understand and modify
+- **Scalability** - Easy to add new features without breaking existing code
+- **Offline Support** - Room database enables offline-first functionality
+- **Type Safety** - Compile-time dependency injection with Hilt

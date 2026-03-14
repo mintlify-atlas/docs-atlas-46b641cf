@@ -1,0 +1,361 @@
+---
+title: "Authentication"
+description: "AuthRepository, AuthViewModel, and Firebase Auth integration"
+---
+
+# Authentication
+
+Casa de Historias uses **Firebase Authentication** for user management with email/password authentication.
+
+## AuthRepository
+
+The authentication repository handles all Firebase Auth operations.
+
+```kotlin
+@Singleton
+class AuthRepository @Inject constructor(
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+) {
+    val currentUser: FirebaseUser? get() = auth.currentUser
+
+    val authState: Flow<FirebaseUser?> = callbackFlow {
+        val listener = FirebaseAuth.AuthStateListener { auth ->
+            trySend(auth.currentUser)
+        }
+        auth.addAuthStateListener(listener)
+        awaitClose { auth.removeAuthStateListener(listener) }
+    }
+}
+```
+
+See `data/firebase/AuthRepository.kt:16` for the full implementation.
+
+## Authentication Methods
+
+### Sign In
+
+```kotlin
+suspend fun signInWithEmailAndPassword(
+    email: String, 
+    password: String
+): Result<FirebaseUser?> {
+    return try {
+        val result = auth.signInWithEmailAndPassword(email, password).await()
+        updateLastLogin(result.user?.uid)
+        Result.success(result.user)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}
+```
+
+See `data/firebase/AuthRepository.kt:31` for sign-in implementation.
+
+### Sign Up
+
+```kotlin
+suspend fun createUserWithEmailAndPassword(
+    email: String, 
+    password: String,
+    displayName: String,
+    community: String
+): Result<FirebaseUser?> {
+    return try {
+        val result = auth.createUserWithEmailAndPassword(email, password).await()
+        result.user?.let { user ->
+            createUserProfile(user.uid, email, displayName, community)
+        }
+        Result.success(result.user)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}
+```
+
+See `data/firebase/AuthRepository.kt:41` for sign-up implementation.
+
+**Sign-up automatically creates a user profile** in Firestore with:
+- Email
+- Display name
+- Community affiliation
+- Creation timestamp
+- Last login timestamp
+
+### Sign Out
+
+```kotlin
+suspend fun signOut() {
+    auth.signOut()
+}
+```
+
+See `data/firebase/AuthRepository.kt:58` for sign-out.
+
+## User Profile Management
+
+### Get User Profile
+
+```kotlin
+suspend fun getUserProfile(userId: String): UserProfile? {
+    return try {
+        val document = firestore.collection("users").document(userId).get().await()
+        document.toObject(UserProfile::class.java)
+    } catch (e: Exception) {
+        null
+    }
+}
+```
+
+See `data/firebase/AuthRepository.kt:62` for profile retrieval.
+
+### Update User Profile
+
+```kotlin
+suspend fun updateUserProfile(userId: String, profile: UserProfile): Boolean {
+    return try {
+        firestore.collection("users")
+            .document(userId)
+            .set(profile.copy(id = userId))
+            .await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+See `data/firebase/AuthRepository.kt:71` for profile updates.
+
+### Create User Profile
+
+Called automatically during sign-up:
+
+```kotlin
+private suspend fun createUserProfile(
+    userId: String, 
+    email: String, 
+    displayName: String,
+    community: String
+) {
+    val profile = UserProfile(
+        id = userId,
+        email = email,
+        displayName = displayName,
+        community = community,
+        createdAt = Timestamp.now(),
+        lastLogin = Timestamp.now()
+    )
+    firestore.collection("users").document(userId).set(profile).await()
+}
+```
+
+See `data/firebase/AuthRepository.kt:83` for profile creation.
+
+## AuthViewModel
+
+The authentication ViewModel exposes auth state to the UI.
+
+```kotlin
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
+    private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
+    val authState: StateFlow<AuthState> = _authState.asStateFlow()
+
+    private val _userProfile = MutableStateFlow<UserProfile?>(null)
+    val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
+
+    val isLoggedIn: Boolean get() = authRepository.currentUser != null
+}
+```
+
+See `ui/auth/AuthViewModel.kt:16` for the ViewModel implementation.
+
+### Auth State Sealed Class
+
+```kotlin
+sealed class AuthState {
+    object Loading : AuthState()
+    object Unauthenticated : AuthState()
+    data class Authenticated(val user: FirebaseUser) : AuthState()
+    data class Error(val message: String) : AuthState()
+}
+```
+
+See `ui/auth/AuthViewModel.kt:97` for the state definition.
+
+### Sign In (ViewModel)
+
+```kotlin
+fun signIn(email: String, password: String) {
+    viewModelScope.launch {
+        _authState.value = AuthState.Loading
+        val result = authRepository.signInWithEmailAndPassword(email, password)
+        if (result.isFailure) {
+            _authState.value = AuthState.Error(
+                result.exceptionOrNull()?.message ?: "Error desconocido"
+            )
+        }
+    }
+}
+```
+
+See `ui/auth/AuthViewModel.kt:43` for sign-in.
+
+### Sign Up (ViewModel)
+
+```kotlin
+fun signUp(email: String, password: String, displayName: String, community: String) {
+    viewModelScope.launch {
+        _authState.value = AuthState.Loading
+        val result = authRepository.createUserWithEmailAndPassword(
+            email, password, displayName, community
+        )
+        if (result.isFailure) {
+            _authState.value = AuthState.Error(
+                result.exceptionOrNull()?.message ?: "Error desconocido"
+            )
+        }
+    }
+}
+```
+
+See `ui/auth/AuthViewModel.kt:55` for sign-up.
+
+### Sign Out (ViewModel)
+
+```kotlin
+fun signOut() {
+    viewModelScope.launch {
+        authRepository.signOut()
+    }
+}
+```
+
+See `ui/auth/AuthViewModel.kt:69` for sign-out.
+
+## Auth State Listener
+
+The ViewModel listens to authentication state changes:
+
+```kotlin
+init {
+    viewModelScope.launch {
+        authRepository.authState.collect { user ->
+            if (user != null) {
+                _authState.value = AuthState.Authenticated(user)
+                loadUserProfile(user.uid)
+            } else {
+                _authState.value = AuthState.Unauthenticated
+                _userProfile.value = null
+            }
+        }
+    }
+}
+```
+
+See `ui/auth/AuthViewModel.kt:29` for auth listener initialization.
+
+This automatically updates the UI when:
+- User logs in
+- User logs out
+- Session expires
+- User is restored from saved session
+
+## UI Integration
+
+### LoginScreen
+
+```kotlin
+@Composable
+fun LoginScreen(
+    onLoginSuccess: () -> Unit,
+    onNavigateToSignUp: () -> Unit
+) {
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val authState by authViewModel.authState.collectAsState()
+
+    // Handle auth state
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Authenticated) {
+            onLoginSuccess()
+        }
+    }
+
+    // UI with email/password fields
+    Button(
+        onClick = {
+            authViewModel.signIn(email, password)
+        }
+    ) {
+        Text("Login")
+    }
+}
+```
+
+See `ui/auth/LoginScreen.kt` for the login UI.
+
+### SignUpScreen
+
+Similar structure to LoginScreen but collects additional information:
+- Display name
+- Community affiliation
+
+See `ui/auth/SignUpScreen.kt` for the sign-up UI.
+
+## Protecting Routes
+
+The navigation start destination changes based on auth state:
+
+```kotlin
+val startDestination = if (authViewModel.isLoggedIn) {
+    Screen.Discover.route
+} else {
+    Screen.Welcome.route
+}
+```
+
+See `ui/MainContainer.kt:44` for protected routing.
+
+## Error Handling
+
+Authentication errors are surfaced through the `AuthState.Error` state:
+
+```kotlin
+when (val state = authState) {
+    is AuthState.Error -> {
+        Text(
+            text = state.message,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+    is AuthState.Loading -> {
+        CircularProgressIndicator()
+    }
+    // ...
+}
+```
+
+Common error messages:
+- "Invalid email or password"
+- "Email already in use"
+- "Weak password"
+- "Network error"
+
+## Current User Access
+
+Get the currently authenticated user:
+
+```kotlin
+val currentUser = authRepository.currentUser
+val userId = currentUser?.uid
+val email = currentUser?.email
+```
+
+This is used throughout the app to:
+- Filter user's own stories
+- Set author ID when creating stories
+- Manage favorites
+- Display profile information

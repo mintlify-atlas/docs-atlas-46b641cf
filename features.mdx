@@ -1,0 +1,256 @@
+---
+title: "Features"
+description: "Comprehensive overview of Casa de Historias capabilities for preserving and sharing bilingual legends"
+---
+
+# Features
+
+Casa de Historias offers a comprehensive suite of features designed to preserve, share, and discover the oral traditions of Sierra de Zongolica.
+
+## Story Management
+
+### Browse Stories
+
+Discover stories through multiple interfaces:
+
+- **Story List Screen**: Scrollable grid of all published stories with thumbnails
+- **Discover Screen**: Curated sections showing recent stories, audio-enabled stories, and stories by community
+- **Interactive Map**: Visualize story locations across Sierra de Zongolica using MapLibre
+
+### Create New Stories
+
+The `AddStoryScreen` provides a rich authoring experience:
+
+<Steps>
+  <Step title="Add Story Metadata">
+    - **Title** in Spanish (required) and Náhuatl (optional)
+    - **Narrator name** (required)
+    - **Community of origin** (optional)
+    - **Cover image** via image picker
+  </Step>
+  
+  <Step title="Write Bilingual Content">
+    - **Story text in Spanish** (required)
+    - **Story text in Náhuatl** (optional)
+    - Multi-line text fields with custom styling
+  </Step>
+  
+  <Step title="Set Geographic Location">
+    - Interactive MapLibre map centered on Sierra de Zongolica (18.6667°N, -97.0000°W)
+    - Tap map to set story location marker
+    - Optional: skip if story isn't tied to specific location
+  </Step>
+  
+  <Step title="Publish">
+    All content is uploaded to Firebase Firestore with images stored in Firebase Storage
+  </Step>
+</Steps>
+
+<Note>
+Stories are published with the authenticated user's ID as the `authorId`, enabling later editing and management.
+</Note>
+
+### Edit Existing Stories
+
+The `EditStoryScreen` allows authors to update their published stories with the same rich editing interface used during creation.
+
+## Bilingual Content
+
+### Dual Language Support
+
+Every story includes:
+
+```kotlin
+data class Story(
+    val titleEs: String,           // Spanish title
+    val titleNahuatl: String,      // Náhuatl title
+    val contentEs: String,         // Spanish content
+    val contentNahuatl: String,    // Náhuatl content
+    // ... other fields
+)
+```
+
+The `StoryDetailScreen` displays both versions with distinct styling:
+- Spanish text in primary color (`LunaLlena`)
+- Náhuatl text in accent color (`AguaSagrada`) with italic styling
+
+### Cultural Dictionary
+
+The `DictionaryScreen` provides a searchable Náhuatl-Spanish dictionary with:
+- Common words and phrases
+- Cultural context and usage examples
+- Search functionality across both languages
+
+<CodeGroup>
+```kotlin Dictionary Entry Structure
+data class NahuatlWord(
+    val nahuatl: String,    // Náhuatl word
+    val spanish: String,    // Spanish translation
+    val example: String = "" // Usage example
+)
+```
+</CodeGroup>
+
+Examples include:
+- **Tonatiuh** → Sol ("El dador de vida")
+- **Metztli** → Luna ("La que brilla en la noche mística")
+- **Tlazocamati** → Gracias ("Agradecimiento profundo")
+
+## Audio Playback
+
+### Native Audio Narration
+
+Stories can include audio recordings uploaded to Firebase Storage:
+
+- Powered by **Media3 (ExoPlayer)** for professional audio playback
+- Audio URLs stored in Firestore as `audioUrl` field
+- Visual indicators show which stories have audio available
+- Compact story cards display play button icon for audio-enabled stories
+
+<Warning>
+Audio recording is not currently implemented in the UI. Audio files must be uploaded separately and linked via the `audioUrl` field in Firestore.
+</Warning>
+
+## Interactive Mapping
+
+### Geographic Story Visualization
+
+The `StoryMapScreen` uses MapLibre to display story locations:
+
+```kotlin
+// Stories with location data
+val storiesWithLocation = stories.filter { 
+    it.latitude != null && it.longitude != null 
+}
+
+// Map centered on Sierra de Zongolica
+map.cameraPosition = CameraPosition.Builder()
+    .target(LatLng(18.6667, -97.0000))
+    .zoom(9.0)
+    .build()
+```
+
+**Features:**
+- Stories displayed as markers with title and narrator info
+- Tap marker to view story preview in bottom sheet
+- Navigate to full story from preview
+- Uses OpenFreeMap tiles (open-source alternative to Google Maps)
+
+## Search & Discovery
+
+### Powerful Search
+
+The `SearchScreen` enables full-text search across:
+- Story titles (Spanish and Náhuatl)
+- Narrator names
+- Community names
+- Tags
+
+Implemented via Firebase Firestore queries in `StoryRepository`:
+
+```kotlin
+suspend fun searchStories(query: String): List<Story> {
+    return firestoreRepository.searchStories(query)
+        .map { it.toDomainModel() }
+}
+```
+
+### Curated Discovery
+
+The `DiscoverScreen` features:
+- **Recent Stories**: Latest 5 stories sorted by `createdAt`
+- **Audio Stories**: Stories with recorded narrations
+- **By Community**: Filter chips for each represented community
+- **Dictionary Access**: Quick link to Náhuatl dictionary
+
+## Favorites & Collections
+
+### Personal Story Collections
+
+Users can save favorite stories:
+
+- **FavoritesViewModel** manages favorite state
+- Stored locally using Room database for offline access
+- Firebase Firestore sync for cross-device favorites
+- Heart icon toggle in story detail screen
+- Dedicated favorites screen for quick access
+
+```kotlin
+// Toggle favorite status
+favoritesViewModel.toggleFavorite(storyId)
+
+// Check if story is favorited
+val isFavorite = favoriteIds.contains(story.id)
+```
+
+## Offline Support
+
+### Room Database Caching
+
+Casa de Historias uses Room for local data persistence:
+
+```kotlin
+@Database(
+    entities = [StoryEntity::class], 
+    version = 1
+)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun storyDao(): StoryDao
+}
+```
+
+**Capabilities:**
+- Stories cached locally after first view
+- Favorites accessible offline
+- Automatic sync when network available
+- User profile data cached for offline access
+
+<Note>
+Images and audio require network connection as they're streamed from Firebase Storage.
+</Note>
+
+## Authentication & User Profiles
+
+### Firebase Authentication
+
+The `AuthViewModel` handles user management:
+
+- Email/password authentication
+- User profiles stored in Firestore
+- Sign up with display name and community
+- Profile editing via `ProfileScreen`
+
+```kotlin
+data class UserProfile(
+    val userId: String,
+    val email: String,
+    val displayName: String,
+    val community: String,
+    val createdAt: Long
+)
+```
+
+### User-Specific Features
+
+- View your published stories
+- Edit/delete your own stories
+- Profile customization
+- Community attribution
+
+## Permissions
+
+The app requires the following Android permissions:
+
+```xml
+<!-- Network access for Firebase -->
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+<!-- Location for MapLibre mapping -->
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+```
+
+<Warning>
+Location permissions are required for the map feature. Users can still browse stories without granting location access.
+</Warning>

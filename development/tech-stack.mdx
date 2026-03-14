@@ -1,0 +1,254 @@
+---
+title: "Tech Stack"
+description: "Technologies and libraries powering Casa de Historias Android app"
+---
+
+# Tech Stack
+
+Casa de Historias is built with modern Android development tools and libraries.
+
+## Core Technologies
+
+### Kotlin
+
+The app is written entirely in **Kotlin** with the following configurations:
+
+```kotlin
+kotlinOptions {
+    jvmTarget = "17"
+}
+```
+
+- **Java Version**: 17
+- **Min SDK**: 26 (Android 8.0)
+- **Target SDK**: 35 (Android 15)
+- **Compile SDK**: 35
+
+See `app/build.gradle.kts:14` for build configuration.
+
+## UI Framework
+
+### Jetpack Compose
+
+Modern declarative UI toolkit for Android:
+
+```kotlin
+dependencies {
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.navigation.compose)
+}
+```
+
+**Key Libraries:**
+- **Material 3** - Modern Material Design components
+- **Navigation Compose** - Type-safe navigation
+- **Extended Icons** - Additional Material Design icons
+
+See `app/build.gradle.kts:50` for Compose dependencies.
+
+## Backend Services
+
+### Firebase
+
+Complete backend solution with multiple services:
+
+```kotlin
+// Firebase
+implementation(platform(libs.firebase.bom))
+implementation(libs.firebase.analytics)
+implementation(libs.firebase.firestore)
+implementation(libs.firebase.auth)
+implementation(libs.firebase.storage)
+```
+
+**Firebase Services:**
+- **Firebase Authentication** - User authentication with email/password
+- **Cloud Firestore** - NoSQL cloud database for stories and user data
+- **Firebase Storage** - Cloud storage for images and audio files
+- **Firebase Analytics** - Usage analytics and crash reporting
+
+See `app/build.gradle.kts:59` for Firebase dependencies.
+
+## Database
+
+### Room
+
+Local SQLite database for offline caching:
+
+```kotlin
+// Room
+implementation(libs.androidx.room.runtime)
+implementation(libs.androidx.room.ktx)
+ksp(libs.androidx.room.compiler)
+```
+
+**Features:**
+- Offline story caching
+- Favorites management
+- Type-safe SQL queries
+- Kotlin Coroutines support
+
+See `app/build.gradle.kts:78` for Room dependencies.
+
+## Mapping
+
+### MapLibre
+
+Open-source mapping library (Google Maps alternative):
+
+```kotlin
+// MapLibre (replaces Google Maps)
+implementation(libs.maplibre.android)
+```
+
+**Why MapLibre?**
+- Open-source and free
+- No API keys required
+- Customizable map styles
+- Suitable for community-focused apps
+
+See `app/build.gradle.kts:66` for MapLibre integration.
+
+## Media & Images
+
+### Coil
+
+Modern image loading library for Compose:
+
+```kotlin
+// Coil (image loading)
+implementation(libs.coil.compose)
+implementation(libs.coil.network)
+```
+
+**Features:**
+- Automatic caching
+- Placeholder support
+- Compose integration
+- Network image loading
+
+See `app/build.gradle.kts:69` for Coil dependencies.
+
+### Media3 (ExoPlayer)
+
+Audio playback for story narrations:
+
+```kotlin
+// Media3 / ExoPlayer (audio playback)
+implementation(libs.media3.exoplayer)
+implementation(libs.media3.ui)
+implementation(libs.media3.session)
+```
+
+**Features:**
+- High-quality audio playback
+- Background playback support
+- Media session integration
+- Streaming support
+
+See `app/build.gradle.kts:73` for Media3 dependencies.
+
+## Dependency Injection
+
+### Hilt
+
+Dagger-based dependency injection:
+
+```kotlin
+// Hilt
+implementation(libs.hilt.android)
+ksp(libs.hilt.compiler)
+implementation(libs.hilt.navigation.compose)
+```
+
+```kotlin
+plugins {
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
+}
+```
+
+**Features:**
+- Compile-time validation
+- ViewModel injection
+- Scoped dependencies
+- Easy testing
+
+See `app/build.gradle.kts:83` for Hilt dependencies and `app/build.gradle.kts:6` for plugins.
+
+## Build Tools
+
+### Gradle Plugins
+
+```kotlin
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.google.services)
+}
+```
+
+**Plugins:**
+- **Android Application** - Android app build support
+- **Kotlin Android** - Kotlin language support
+- **Kotlin Compose** - Compose compiler plugin
+- **KSP** - Kotlin Symbol Processing for code generation
+- **Hilt** - Dependency injection plugin
+- **Google Services** - Firebase configuration
+
+See `app/build.gradle.kts:1` for plugin configuration.
+
+## Testing
+
+```kotlin
+testImplementation(libs.junit)
+androidTestImplementation(libs.androidx.junit)
+androidTestImplementation(libs.androidx.espresso.core)
+androidTestImplementation(platform(libs.androidx.compose.bom))
+androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+```
+
+**Testing Libraries:**
+- **JUnit** - Unit testing framework
+- **Espresso** - UI testing
+- **Compose Test** - Compose UI testing
+
+See `app/build.gradle.kts:87` for test dependencies.
+
+## AndroidX Libraries
+
+```kotlin
+implementation(libs.androidx.core.ktx)
+implementation(libs.androidx.lifecycle.runtime.ktx)
+implementation(libs.androidx.activity.compose)
+```
+
+**Core Libraries:**
+- **Core KTX** - Kotlin extensions for Android APIs
+- **Lifecycle Runtime** - Lifecycle-aware components
+- **Activity Compose** - Compose integration with Activities
+
+See `app/build.gradle.kts:47` for AndroidX dependencies.
+
+## Technology Summary
+
+| Category | Technology | Purpose |
+|----------|------------|----------|
+| Language | Kotlin | Primary programming language |
+| UI | Jetpack Compose + Material 3 | Declarative UI framework |
+| Backend | Firebase (Auth, Firestore, Storage) | Cloud backend services |
+| Database | Room | Local offline storage |
+| DI | Hilt | Dependency injection |
+| Images | Coil | Image loading and caching |
+| Audio | Media3/ExoPlayer | Audio playback |
+| Maps | MapLibre | Geographic visualization |
+| Navigation | Navigation Compose | Screen navigation |
+| Build | Gradle + KSP | Build system and code generation |

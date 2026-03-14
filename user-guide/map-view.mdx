@@ -1,0 +1,243 @@
+---
+title: "Map View"
+description: "Explore stories on an interactive map of the Sierra de Zongolica"
+---
+
+## Overview
+
+The Map View (`StoryMapScreen`) displays stories on an interactive map using **MapLibre**, showing their geographic origins in the Sierra de Zongolica region.
+
+<Note>
+Only stories with location data (latitude/longitude) appear on the map. Not all stories have geographic coordinates.
+</Note>
+
+## Accessing the Map
+
+The map is accessible from the bottom navigation bar:
+
+1. Tap the **Map** icon in the bottom navigation
+2. The map loads, centered on the Sierra de Zongolica region
+3. Story markers appear at their respective locations
+
+<Tip>
+The map defaults to coordinates 18.6667°N, -97.0000°W, which corresponds to the Sierra de Zongolica area in Veracruz, Mexico.
+</Tip>
+
+## MapLibre Integration
+
+Casa de Historias uses **MapLibre** (an open-source alternative to Google Maps):
+
+```kotlin
+// Dependency in build.gradle.kts
+implementation(libs.maplibre.android)
+```
+
+### Why MapLibre?
+
+- **Open source**: No vendor lock-in
+- **Free**: No usage fees or API quotas
+- **Customizable**: Full control over map styling
+- **Privacy-focused**: No tracking by third parties
+- **Offline capable**: Cache map tiles for offline use
+
+<Note>
+MapLibre is compatible with Mapbox GL styles and provides the same rich mapping features as Google Maps.
+</Note>
+
+## Map Features
+
+### Story Markers
+
+Each story with coordinates appears as a marker:
+
+```kotlin
+data class Story(
+    ...
+    val latitude: Double?,   // 18.6667
+    val longitude: Double?,  // -97.0000
+    val community: String,   // "Zongolica"
+    ...
+)
+```
+
+Markers display:
+- **Pin icon** at the story's location
+- **Story title** on tap
+- **Quick preview** with thumbnail and title
+
+### Map Controls
+
+- **Zoom**: Pinch to zoom in/out
+- **Pan**: Drag to move around the map
+- **Rotation**: Two-finger rotate (if enabled)
+- **Tilt**: Two-finger drag up/down for 3D view
+
+### Permissions
+
+The map requires location permissions (declared in AndroidManifest.xml):
+
+```xml
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+```
+
+<Warning>
+Granting location permissions allows the map to show your current location. You can deny these permissions and still use the map, but your location won't be displayed.
+</Warning>
+
+## Using the Map
+
+<Steps>
+  <Step title="View the map">
+    Navigate to the Map tab from the bottom navigation bar.
+  </Step>
+  
+  <Step title="Explore markers">
+    Tap any marker to see a preview of the story at that location.
+  </Step>
+  
+  <Step title="Open a story">
+    Tap the preview card to open the full story detail screen.
+  </Step>
+  
+  <Step title="Navigate the map">
+    Use pinch-to-zoom and pan gestures to explore different areas of the Sierra de Zongolica.
+  </Step>
+</Steps>
+
+## Geographic Context
+
+The Sierra de Zongolica is a mountainous region in Veracruz, Mexico:
+
+- **Coordinates**: Approximately 18.6667°N, 97.0000°W
+- **Communities**: Zongolica, Tequila, Tlaquilpa, Atlanca, and many others
+- **Cultural significance**: Home to Náhuatl-speaking communities with rich oral traditions
+
+### Example Locations
+
+Stories might be tagged with locations such as:
+
+```kotlin
+// Story from Zongolica town center
+val story1 = Story(
+    titleEs = "La Cueva del Tesoro",
+    latitude = 18.6667,
+    longitude = -97.0000,
+    community = "Zongolica"
+)
+
+// Story from a nearby community
+val story2 = Story(
+    titleEs = "El Río Encantado",
+    latitude = 18.6891,
+    longitude = -96.9876,
+    community = "Tequila"
+)
+```
+
+<Tip>
+Stories from the same community may have nearby coordinates, creating clusters of markers. Zoom in to see individual stories.
+</Tip>
+
+## Adding Location Data to Stories
+
+When creating a story, you can add coordinates:
+
+1. Use the **map picker** in the Add Story screen
+2. Or enter **latitude** and **longitude** manually
+3. The story will then appear on the map
+
+### Coordinate Formats
+
+- **Decimal degrees**: 18.6667, -97.0000 (preferred)
+- **Precision**: Up to 6 decimal places for accuracy
+- **Validation**: Latitude: -90 to 90, Longitude: -180 to 180
+
+<Note>
+Only add coordinates if the story is genuinely tied to that location. Accurate geographic data preserves the cultural and geographic context of oral traditions.
+</Note>
+
+## Map Styling
+
+MapLibre supports custom map styles:
+
+```json
+{
+  "version": 8,
+  "name": "Casa de Historias",
+  "sources": { ... },
+  "layers": [ ... ]
+}
+```
+
+The map can be themed to match the app's visual style:
+- **Dark mode**: Night-themed map for evening reading
+- **Custom colors**: Agua Sagrada accents, Noche Profunda backgrounds
+- **Cultural elements**: Custom icons for different story types
+
+## Offline Maps
+
+MapLibre supports offline map tiles:
+
+1. **Download tiles** for the Sierra de Zongolica region
+2. **Cache locally** for offline access
+3. **View stories** without internet connection
+
+<Warning>
+Offline maps require pre-downloading map data. This feature may not be fully implemented yet.
+</Warning>
+
+## Clustering
+
+When many stories are in the same area:
+
+- **Cluster markers** appear showing the count (e.g., "5 stories")
+- **Zoom in** to separate the cluster into individual markers
+- **Tap cluster** to zoom to that area
+
+Clustering prevents marker overlap and improves map readability.
+
+## Troubleshooting
+
+<Accordion title="Map doesn't load">
+  - Check your internet connection
+  - Ensure location permissions are granted (if using current location)
+  - Verify MapLibre is properly configured
+  - Try force-closing and reopening the app
+</Accordion>
+
+<Accordion title="No markers appear">
+  - Not all stories have location data
+  - Zoom out to see a wider area
+  - Check that stories with coordinates exist in the database
+</Accordion>
+
+<Accordion title="Map is blank or shows wrong location">
+  - The default coordinates may not have map tiles
+  - Check your internet connection to download tiles
+  - Verify the MapLibre style URL is correct
+</Accordion>
+
+<Accordion title="Can I see my current location?">
+  Grant location permissions in your device settings. Your location will appear as a blue dot on the map.
+</Accordion>
+
+## Privacy
+
+- **Your location is private**: Current location is only shown to you, not stored or shared
+- **Story locations are public**: Geographic coordinates are visible to all users
+- **No tracking**: MapLibre doesn't track your movements
+
+<Tip>
+Use the map to discover stories from different communities and understand the geographic spread of legends across the Sierra de Zongolica.
+</Tip>
+
+## Future Enhancements
+
+Potential map features:
+
+- **Heatmap**: Show story density by region
+- **Filter by community**: Display only stories from selected communities
+- **Route planning**: Plan a cultural tour visiting story locations
+- **AR mode**: View stories in augmented reality at their locations
+- **Custom markers**: Different icons for different story themes

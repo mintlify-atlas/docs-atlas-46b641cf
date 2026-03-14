@@ -1,0 +1,253 @@
+---
+title: "Discover Mode"
+description: "Explore featured stories, recent additions, and community collections"
+---
+
+## Overview
+
+The **Discover** screen (`DiscoverScreen`) provides a curated browsing experience for finding stories. It highlights recent additions, audio narrations, and community-organized content.
+
+<Note>
+Discover is accessible from the bottom navigation bar. It's the best place to explore content when you're not looking for something specific.
+</Note>
+
+## Discover Sections
+
+The Discover tab is organized into multiple sections:
+
+<CardGroup cols={2}>
+  <Card title="Lo más nuevo" icon="sparkles">
+    Recently added stories, sorted by creation date
+  </Card>
+  <Card title="Con Audio Original" icon="microphone">
+    Stories with audio narration from community members
+  </Card>
+  <Card title="Diccionario Náhuatl" icon="book">
+    Quick access to the Nahuatl dictionary
+  </Card>
+  <Card title="Por Comunidad" icon="location-dot">
+    Browse stories organized by community
+  </Card>
+</CardGroup>
+
+## "Lo más nuevo" (What's New)
+
+This section displays the 5 most recently added stories:
+
+```kotlin
+val recentStories = stories.sortedByDescending { it.createdAt }.take(5)
+```
+
+### Featured Cards
+
+Recent stories are displayed as large, featured cards in a horizontal scrolling row:
+- **260dp wide × 320dp tall**
+- Full cover image (if available)
+- Bilingual titles
+- Narrator information
+- Play button for audio stories
+
+<Tip>
+Swipe horizontally to browse recent stories. Tap "Ver todo" (See all) to view the complete story list.
+</Tip>
+
+## "Con Audio Original" (With Audio)
+
+This section highlights stories with audio narration:
+
+```kotlin
+val audioStories = stories.filter { !it.audioUrl.isNullOrBlank() }.take(5)
+```
+
+### Compact Cards
+
+Audio stories use a compact horizontal card layout:
+- Thumbnail image on the left (100dp wide)
+- Story title and narrator on the right
+- Play button overlay on the thumbnail
+- Efficient use of screen space
+
+<Note>
+Audio narration is a key feature of Casa de Historias. This section makes it easy to discover stories with authentic voice recordings.
+</Note>
+
+## Diccionario Náhuatl Section
+
+A prominent card provides quick access to the Nahuatl dictionary:
+
+```kotlin
+Card(
+    onClick = onNavigateToDictionary,
+    colors = CardDefaults.cardColors(containerColor = FondoTarjeta),
+    shape = RoundedCornerShape(20.dp)
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier.fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            NocheProfunda,
+                            AguaSagradaOscura.copy(alpha = 0.5f)
+                        )
+                    )
+                )
+        )
+        // Title and description
+    }
+}
+```
+
+The dictionary card includes:
+- **Title**: "Diccionario Náhuatl"
+- **Description**: "Aprende palabras de la Sierra y su significado"
+- **Gradient background**: Night blue to sacred water colors
+- **Play icon**: Visual indicator for learning
+
+<Tip>
+The Nahuatl dictionary helps you learn indigenous language terms used in the stories. It's a valuable cultural and educational resource.
+</Tip>
+
+## "Por Comunidad" (By Community)
+
+This section displays filter chips for each community represented in the story collection:
+
+```kotlin
+val communities = stories
+    .map { it.community }
+    .filter { it.isNotBlank() }
+    .distinct()
+    .take(10)
+```
+
+### Community Chips
+
+Each community appears as a `FilterChip`:
+- Horizontal scrolling list
+- Tappable chips for filtering (or navigation to full list)
+- Displays up to 10 distinct communities
+- Examples: "Zongolica", "Tequila", "Tlaquilpa", "Atlanca"
+
+<Note>
+Community organization preserves the geographic and cultural context of each legend. Stories from the same community often share themes and characters.
+</Note>
+
+## Navigation
+
+From the Discover screen, you can navigate to:
+
+- **Story Detail**: Tap any featured or compact card
+- **Story List**: Tap "Ver todo" in the "Lo más nuevo" section
+- **Nahuatl Dictionary**: Tap the dictionary card
+- **Community Filter**: Tap any community chip (currently navigates to story list)
+
+## Section Titles
+
+Each section has a title component with optional action:
+
+```kotlin
+@Composable
+fun SectionTitle(
+    title: String,
+    actionText: String? = null,
+    onActionClick: (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = LunaLlena
+        )
+        if (actionText != null && onActionClick != null) {
+            Text(
+                text = actionText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = AguaSagrada,
+                modifier = Modifier.clickable { onActionClick() }
+            )
+        }
+    }
+}
+```
+
+## Empty States
+
+If a section has no content, a helpful message is displayed:
+
+```kotlin
+@Composable
+fun EmptyStateMessage(message: String) {
+    Text(
+        text = message,
+        style = MaterialTheme.typography.bodyMedium,
+        color = TextoSecundario,
+        modifier = Modifier.padding(horizontal = 16.dp)
+    )
+}
+```
+
+Examples:
+- "No hay historias nuevas" (No new stories)
+- "Aún no hay audios grabados" (No audio recordings yet)
+- "No hay comunidades registradas" (No communities registered)
+
+<Warning>
+Discover mode requires an internet connection to load stories from Firestore. The screen will show loading indicators until stories are fetched.
+</Warning>
+
+## Loading State
+
+While stories are being fetched:
+
+```kotlin
+if (isLoading) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(padding),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator(color = AguaSagrada)
+    }
+}
+```
+
+## Design Features
+
+### Visual Hierarchy
+
+1. **Featured cards** (large, image-prominent) for recent stories
+2. **Compact cards** (efficient horizontal layout) for audio stories
+3. **Promotional card** (gradient background) for the dictionary
+4. **Filter chips** (small, interactive) for communities
+
+### Color Scheme
+
+Discover uses the app's "Noche Mística" (Mystical Night) theme:
+- **NocheProfunda** (Deep Night): `#0F1419` - Background
+- **AguaSagrada** (Sacred Water): `#4FD1C5` - Accents and highlights
+- **LunaLlena** (Full Moon): `#F7FAFC` - Primary text
+- **TextoSecundario** (Secondary Text): `#A0AEC0` - Metadata
+
+<Tip>
+The Discover screen is perfect for leisurely browsing. Use it when you're in the mood to explore without a specific story in mind.
+</Tip>
+
+## Best Practices
+
+### For Users
+
+- Check "Lo más nuevo" regularly to discover fresh content
+- Explore the audio section to hear authentic narrations
+- Browse by community to learn about different regions
+- Use the dictionary to understand Nahuatl terms
+
+### For Storytellers
+
+- Add high-quality cover images so your stories stand out in featured cards
+- Include audio narration to appear in the "Con Audio Original" section
+- Provide accurate community names for proper organization
+- Publish regularly to appear in "Lo más nuevo"

@@ -1,0 +1,226 @@
+---
+title: "Installation"
+description: "How to install Casa de Historias on your Android device"
+---
+
+# Installing Casa de Historias
+
+Casa de Historias is an Android application that can be installed on devices running Android 8.0 (Oreo) or higher.
+
+## System Requirements
+
+<CardGroup cols={2}>
+  <Card title="Minimum Android Version" icon="android">
+    Android 8.0 (API level 26) or higher
+  </Card>
+  
+  <Card title="Target Android Version" icon="mobile">
+    Optimized for Android 14 (API level 35)
+  </Card>
+  
+  <Card title="Storage Space" icon="hard-drive">
+    At least 50 MB free space for app installation
+  </Card>
+  
+  <Card title="Network Connection" icon="wifi">
+    Required for syncing stories and media from Firebase
+  </Card>
+</CardGroup>
+
+### Technical Requirements
+
+Based on the app's `build.gradle.kts` configuration:
+
+```kotlin
+android {
+    compileSdk = 35
+    
+    defaultConfig {
+        applicationId = "com.example.casadehistorias"
+        minSdk = 26        // Android 8.0+
+        targetSdk = 35     // Android 14
+        versionCode = 1
+        versionName = "1.0"
+    }
+}
+```
+
+<Note>
+The app uses modern Android features including Jetpack Compose, so devices running Android 8.0-10 may experience slightly different performance compared to Android 11+.
+</Note>
+
+## Installation Methods
+
+### Method 1: Install from APK (Recommended)
+
+<Steps>
+  <Step title="Download the APK">
+    Download the latest `casa-de-historias.apk` file from the project repository or release page.
+  </Step>
+  
+  <Step title="Enable Unknown Sources">
+    On your Android device, go to:
+    - **Settings** → **Security** → **Unknown Sources**
+    - Or **Settings** → **Apps** → **Special Access** → **Install Unknown Apps**
+    
+    Enable installation from your browser or file manager.
+    
+    <Warning>
+    Only install APK files from trusted sources. The official Casa de Historias APK should come from the project maintainers.
+    </Warning>
+  </Step>
+  
+  <Step title="Install the APK">
+    - Locate the downloaded APK file in your device's Downloads folder
+    - Tap the file to begin installation
+    - Review the permissions requested
+    - Tap **Install**
+  </Step>
+  
+  <Step title="Open the App">
+    Once installed, find "Casa de Historias" in your app drawer and tap to launch.
+  </Step>
+</Steps>
+
+### Method 2: Build from Source
+
+Developers can build the app directly from source code.
+
+<Steps>
+  <Step title="Clone the Repository">
+    ```bash
+    git clone <repository-url>
+    cd casa-de-historias
+    ```
+  </Step>
+  
+  <Step title="Install Prerequisites">
+    - **Android Studio** Hedgehog (2023.1.1) or newer
+    - **JDK 17** (specified in build configuration)
+    - **Android SDK** with API level 35
+  </Step>
+  
+  <Step title="Configure Firebase">
+    Add your `google-services.json` file to the `app/` directory. See [Setup](/getting-started/setup) for Firebase configuration details.
+  </Step>
+  
+  <Step title="Build the APK">
+    In Android Studio:
+    - Open the project
+    - **Build** → **Build Bundle(s) / APK(s)** → **Build APK(s)**
+    
+    Or via command line:
+    ```bash
+    ./gradlew assembleDebug
+    ```
+    
+    The APK will be generated at:
+    ```
+    app/build/outputs/apk/debug/app-debug.apk
+    ```
+  </Step>
+  
+  <Step title="Install on Device">
+    Connect your device via USB and run:
+    ```bash
+    ./gradlew installDebug
+    ```
+    
+    Or manually install the APK:
+    ```bash
+    adb install app/build/outputs/apk/debug/app-debug.apk
+    ```
+  </Step>
+</Steps>
+
+## Verifying Installation
+
+After installation, verify everything is working:
+
+<Steps>
+  <Step title="Launch the App">
+    Open Casa de Historias from your app drawer. You should see the welcome screen.
+  </Step>
+  
+  <Step title="Check Permissions">
+    The app will request permissions on first launch. See the next section for details.
+  </Step>
+  
+  <Step title="Test Connectivity">
+    Create an account or log in to verify Firebase connection is working.
+  </Step>
+</Steps>
+
+## Required Permissions
+
+On first launch, Casa de Historias will request the following permissions:
+
+<Accordion title="Internet & Network State">
+  **Required for:**
+  - Syncing stories from Firebase Firestore
+  - Downloading images and audio from Firebase Storage
+  - User authentication
+  
+  **Permission in AndroidManifest:**
+  ```xml
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  ```
+  
+  <Note>These permissions are granted automatically and don't require user approval.</Note>
+</Accordion>
+
+<Accordion title="Location Access (Optional)">
+  **Required for:**
+  - Viewing stories on the interactive map
+  - Setting location when creating new stories
+  - MapLibre map functionality
+  
+  **Permission in AndroidManifest:**
+  ```xml
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  ```
+  
+  <Warning>
+  Location is optional. If denied, you can still browse and create stories, but cannot use the map features.
+  </Warning>
+</Accordion>
+
+## Troubleshooting
+
+### Installation Failed
+
+**Problem:** "App not installed" error
+
+**Solutions:**
+- Ensure you have Android 8.0 or higher
+- Check that you have sufficient storage space (50+ MB)
+- Uninstall any previous version of the app
+- Verify the APK file downloaded completely without corruption
+
+### Firebase Connection Issues
+
+**Problem:** Unable to login or load stories
+
+**Solutions:**
+- Check your internet connection
+- Verify that Firebase is properly configured (see [Setup](/getting-started/setup))
+- Try logging out and logging back in
+- Clear app data: **Settings** → **Apps** → **Casa de Historias** → **Storage** → **Clear Data**
+
+### Map Not Loading
+
+**Problem:** Map screen shows blank or errors
+
+**Solutions:**
+- Grant location permissions when prompted
+- Ensure internet connection is active (map tiles load from OpenFreeMap)
+- Restart the app
+
+## Next Steps
+
+Now that Casa de Historias is installed, proceed to:
+
+- [Setup](/getting-started/setup) - Configure Firebase and app permissions
+- [Quickstart](/getting-started/quickstart) - Create your first story

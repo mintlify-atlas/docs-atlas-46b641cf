@@ -1,0 +1,575 @@
+---
+title: "Code Style Guide"
+description: "Kotlin conventions, Compose best practices, and code organization for Casa de Historias"
+---
+
+# Code Style Guide
+
+This guide outlines the coding standards and best practices for Casa de Historias Android development.
+
+## Kotlin Conventions
+
+### File Structure
+
+Organize Kotlin files in this order:
+
+1. Package declaration
+2. Import statements (alphabetically sorted)
+3. Top-level declarations
+4. Class declaration
+
+```kotlin
+package com.example.casadehistorias.ui.story
+
+import androidx.compose.runtime.*
+import androidx.lifecycle.ViewModel
+import com.example.casadehistorias.domain.model.Story
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
+@HiltViewModel
+class StoryViewModel @Inject constructor(
+    private val repository: StoryRepository
+) : ViewModel() {
+    // Implementation
+}
+```
+
+### Naming Conventions
+
+#### Classes and Interfaces
+
+Use PascalCase:
+
+```kotlin
+class StoryRepository { }
+interface StoryDao { }
+data class Story { }
+sealed class Screen { }
+```
+
+#### Functions and Variables
+
+Use camelCase:
+
+```kotlin
+fun getAllStories(): List<Story> { }
+val currentUser: FirebaseUser? = null
+var isLoading: Boolean = false
+```
+
+#### Constants
+
+Use UPPER_SNAKE_CASE:
+
+```kotlin
+const val MAX_STORY_LENGTH = 5000
+const val DEFAULT_COMMUNITY = "Unknown"
+```
+
+#### Composables
+
+Use PascalCase (like classes):
+
+```kotlin
+@Composable
+fun StoryListScreen() { }
+
+@Composable
+fun ModernStoryCard(story: Story) { }
+```
+
+### Data Classes
+
+Use data classes for models:
+
+```kotlin
+data class Story(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String
+)
+```
+
+See `domain/model/Story.kt:3` for example.
+
+### Sealed Classes
+
+Use sealed classes for state and navigation:
+
+```kotlin
+sealed class AuthState {
+    object Loading : AuthState()
+    object Unauthenticated : AuthState()
+    data class Authenticated(val user: FirebaseUser) : AuthState()
+    data class Error(val message: String) : AuthState()
+}
+```
+
+See `ui/auth/AuthViewModel.kt:97` for example.
+
+### Null Safety
+
+Prefer non-nullable types:
+
+```kotlin
+// Good
+val title: String = ""
+
+// Acceptable when null is valid
+val audioUrl: String? = null
+```
+
+Use safe calls and Elvis operator:
+
+```kotlin
+// Safe call
+val length = story.audioUrl?.length
+
+// Elvis operator
+val narrator = story.narratorName ?: "Unknown"
+
+// Let for null checks
+story.imageUrl?.let { url ->
+    loadImage(url)
+}
+```
+
+## Compose Best Practices
+
+### Composable Structure
+
+Organize composables top-to-bottom:
+
+1. Screen-level composables
+2. Section composables
+3. Reusable component composables
+
+```kotlin
+// Screen level
+@Composable
+fun StoryListScreen(
+    viewModel: StoryViewModel,
+    onStoryClick: (String) -> Unit
+) { }
+
+// Component level
+@Composable
+fun StoryCard(
+    story: Story,
+    onClick: () -> Unit
+) { }
+```
+
+### State Hoisting
+
+Hoist state to the caller:
+
+```kotlin
+// Bad - state inside component
+@Composable
+fun SearchField() {
+    var query by remember { mutableStateOf("") }
+    TextField(value = query, onValueChange = { query = it })
+}
+
+// Good - state hoisted
+@Composable
+fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit
+) {
+    TextField(value = query, onValueChange = onQueryChange)
+}
+```
+
+### Parameters Order
+
+1. Required parameters
+2. Optional parameters with defaults
+3. Modifier (always last before trailing lambda)
+4. Trailing lambda (onClick, content, etc.)
+
+```kotlin
+@Composable
+fun StoryCard(
+    story: Story,  // Required
+    showAuthor: Boolean = true,  // Optional
+    modifier: Modifier = Modifier,  // Modifier
+    onClick: () -> Unit = {}  // Trailing lambda
+) { }
+```
+
+### Modifier Best Practices
+
+- Always accept `modifier` parameter
+- Apply it first in the chain
+- Don't create modifiers inside composables
+
+```kotlin
+@Composable
+fun StoryCard(
+    story: Story,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier  // Apply first
+            .fillMaxWidth()
+            .height(200.dp)
+    ) {
+        // Content
+    }
+}
+```
+
+See `ui/story/StoryListScreen.kt:194` for examples.
+
+### Preview Annotations
+
+Add preview for all reusable components:
+
+```kotlin
+@Preview(showBackground = true)
+@Composable
+fun StoryCardPreview() {
+    CasaDeHistoriasTheme {
+        ModernStoryCard(
+            story = Story(
+                id = "1",
+                titleEs = "La Llorona",
+                titleNahuatl = "Chocani",
+                // ...
+            )
+        )
+    }
+}
+```
+
+### Remember and State
+
+Use `remember` for non-state values:
+
+```kotlin
+val scrollState = rememberScrollState()
+val coroutineScope = rememberCoroutineScope()
+```
+
+Use `collectAsState()` for StateFlow:
+
+```kotlin
+val stories by viewModel.stories.collectAsState()
+val isLoading by viewModel.isLoading.collectAsState()
+```
+
+## Architecture Patterns
+
+### ViewModels
+
+Use `@HiltViewModel` for dependency injection:
+
+```kotlin
+@HiltViewModel
+class StoryViewModel @Inject constructor(
+    private val repository: StoryRepository
+) : ViewModel() {
+    private val _stories = MutableStateFlow<List<Story>>(emptyList())
+    val stories: StateFlow<List<Story>> = _stories.asStateFlow()
+    
+    init {
+        loadStories()
+    }
+    
+    private fun loadStories() {
+        viewModelScope.launch {
+            // Load data
+        }
+    }
+}
+```
+
+See `ui/auth/AuthViewModel.kt:16` for example.
+
+### Repository Pattern
+
+Repositories coordinate between data sources:
+
+```kotlin
+@Singleton
+class StoryRepository @Inject constructor(
+    private val firestoreRepository: FirestoreRepository,
+    private val authRepository: AuthRepository
+) {
+    suspend fun getAllStories(): List<Story> {
+        return firestoreRepository.getAllStories().map { it.toDomainModel() }
+    }
+}
+```
+
+See `data/repository/StoryRepository.kt:13` for example.
+
+### Dependency Injection
+
+Use Hilt modules:
+
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object FirebaseModule {
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+}
+```
+
+See `di/FirebaseModule.kt:14` for example.
+
+## Coroutines and Flow
+
+### Launching Coroutines
+
+Use `viewModelScope` in ViewModels:
+
+```kotlin
+fun loadStories() {
+    viewModelScope.launch {
+        _isLoading.value = true
+        try {
+            val stories = repository.getAllStories()
+            _stories.value = stories
+        } catch (e: Exception) {
+            _errorMessage.value = e.message
+        } finally {
+            _isLoading.value = false
+        }
+    }
+}
+```
+
+### Flow Collections
+
+Collect flows in `init` or with `LaunchedEffect`:
+
+```kotlin
+// In ViewModel init
+init {
+    viewModelScope.launch {
+        repository.getAllStoriesFlow().collect { stories ->
+            _stories.value = stories
+        }
+    }
+}
+
+// In Composable
+LaunchedEffect(Unit) {
+    viewModel.events.collect { event ->
+        // Handle event
+    }
+}
+```
+
+### StateFlow vs Flow
+
+- Use `StateFlow` for UI state (has current value)
+- Use `Flow` for one-time events or streams
+
+```kotlin
+// State
+val stories: StateFlow<List<Story>> = _stories.asStateFlow()
+
+// Events
+val navigationEvents: Flow<NavigationEvent> = _navigationEvents
+```
+
+## Error Handling
+
+### Repository Layer
+
+Return nullable or Result types:
+
+```kotlin
+suspend fun getStoryById(id: String): Story? {
+    return try {
+        firestoreRepository.getStoryById(id)?.toDomainModel()
+    } catch (e: Exception) {
+        null
+    }
+}
+
+// Or use Result
+suspend fun signIn(email: String, password: String): Result<FirebaseUser?> {
+    return try {
+        val result = auth.signInWithEmailAndPassword(email, password).await()
+        Result.success(result.user)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}
+```
+
+See `data/firebase/AuthRepository.kt:31` for Result example.
+
+### ViewModel Layer
+
+Handle errors and update UI state:
+
+```kotlin
+fun loadStories() {
+    viewModelScope.launch {
+        _isLoading.value = true
+        _errorMessage.value = null
+        
+        try {
+            val stories = repository.getAllStories()
+            _stories.value = stories
+        } catch (e: Exception) {
+            _errorMessage.value = "Error loading stories: ${e.message}"
+        } finally {
+            _isLoading.value = false
+        }
+    }
+}
+```
+
+## Comments and Documentation
+
+### When to Comment
+
+- Complex business logic
+- Non-obvious workarounds
+- Public API documentation
+
+### When NOT to Comment
+
+- Self-explanatory code
+- Obvious operations
+- Redundant descriptions
+
+```kotlin
+// Bad - obvious
+// Set loading to true
+_isLoading.value = true
+
+// Good - explains why
+// Firestore 'in' queries support max 30 items, so we chunk larger requests
+ids.chunked(30).forEach { chunk ->
+    // ...
+}
+```
+
+See `data/firebase/FirestoreRepository.kt:100` for good comment example.
+
+### KDoc for Public APIs
+
+```kotlin
+/**
+ * Uploads an image to Firebase Storage.
+ *
+ * @param uri The local file URI to upload
+ * @param storyId The story ID for organizing storage
+ * @return Download URL or null if upload fails
+ */
+suspend fun uploadImage(uri: Uri, storyId: String): String?
+```
+
+## File Organization
+
+### Package Structure
+
+```
+com.example.casadehistorias/
+├── data/
+│   ├── firebase/
+│   ├── local/
+│   └── repository/
+├── domain/
+│   └── model/
+├── ui/
+│   ├── auth/
+│   ├── story/
+│   ├── navigation/
+│   └── theme/
+└── di/
+```
+
+### One Class Per File
+
+Exceptions:
+- Small related classes (e.g., sealed class variants)
+- Extension functions for a class
+
+## Formatting
+
+### Indentation
+
+- **4 spaces** (no tabs)
+- Continuation indent: 4 spaces
+
+### Line Length
+
+- Max **120 characters**
+- Break long lines at logical points
+
+```kotlin
+// Good
+val story = Story(
+    id = "1",
+    titleEs = "Title",
+    titleNahuatl = "Nahuatl Title"
+)
+
+// Bad
+val story = Story(id = "1", titleEs = "Title", titleNahuatl = "Nahuatl Title", contentEs = "Very long content...")
+```
+
+### Blank Lines
+
+- One blank line between methods
+- Two blank lines between classes in same file
+- No blank lines at start/end of blocks
+
+## Testing
+
+### Unit Test Naming
+
+```kotlin
+@Test
+fun `getAllStories returns list of stories`() {
+    // Arrange
+    val repository = StoryRepository(/* ... */)
+    
+    // Act
+    val result = repository.getAllStories()
+    
+    // Assert
+    assertTrue(result.isNotEmpty())
+}
+```
+
+### Test Structure
+
+Use Arrange-Act-Assert pattern:
+
+1. **Arrange** - Set up test data
+2. **Act** - Execute the code being tested
+3. **Assert** - Verify the results
+
+## Code Review Checklist
+
+Before submitting a PR:
+
+- [ ] Code follows Kotlin conventions
+- [ ] Composables follow best practices
+- [ ] No hardcoded strings (use string resources)
+- [ ] Error handling is appropriate
+- [ ] Tests are added/updated
+- [ ] Documentation is updated
+- [ ] No lint warnings
+- [ ] Code is formatted (Ctrl+Alt+L)
+
+## Resources
+
+- [Kotlin Coding Conventions](https://kotlinlang.org/docs/coding-conventions.html)
+- [Compose API Guidelines](https://github.com/androidx/androidx/blob/androidx-main/compose/docs/compose-api-guidelines.md)
+- [Android Architecture Guide](https://developer.android.com/topic/architecture)

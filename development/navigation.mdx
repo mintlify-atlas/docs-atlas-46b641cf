@@ -1,0 +1,295 @@
+---
+title: "Navigation"
+description: "NavGraph setup, Screen sealed class, and navigation routes"
+---
+
+# Navigation
+
+Casa de Historias uses **Jetpack Compose Navigation** for type-safe navigation between screens.
+
+## Navigation Graph
+
+The `NavGraph` composable defines all app routes and their composables.
+
+```kotlin
+@Composable
+fun NavGraph(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    startDestination: String
+) {
+    val storyViewModel: StoryViewModel = hiltViewModel()
+    val favoritesViewModel: FavoritesViewModel = hiltViewModel()
+
+    NavHost(
+        navController = navController,
+        startDestination = startDestination
+    ) {
+        composable(Screen.Welcome.route) { /* ... */ }
+        composable(Screen.Login.route) { /* ... */ }
+        composable(Screen.SignUp.route) { /* ... */ }
+        // ... more routes
+    }
+}
+```
+
+See `ui/navigation/NavGraph.kt:49` for the full navigation graph.
+
+## Screen Sealed Class
+
+All routes are defined as a sealed class for type safety:
+
+```kotlin
+sealed class Screen(val route: String) {
+    object Welcome : Screen("welcome")
+    object Discover : Screen("discover")
+    object Dictionary : Screen("dictionary")
+    object Login : Screen("login")
+    object SignUp : Screen("signup")
+    object StoryList : Screen("story_list")
+    object AddStory : Screen("add_story")
+    object StoryMap : Screen("story_map")
+    object Favorites : Screen("favorites")
+    object Profile : Screen("profile")
+    object Search : Screen("search")
+    object Settings : Screen("settings")
+    
+    object StoryDetail : Screen("story_detail/{storyId}") {
+        fun createRoute(storyId: String) = "story_detail/$storyId"
+    }
+    
+    object EditStory : Screen("edit_story/{storyId}") {
+        fun createRoute(storyId: String) = "edit_story/$storyId"
+    }
+}
+```
+
+See `ui/navigation/NavGraph.kt:27` for the Screen definitions.
+
+## Route Definitions
+
+### Static Routes
+
+Routes without parameters:
+
+- `welcome` - Welcome/onboarding screen
+- `login` - Login screen
+- `signup` - Sign up screen
+- `discover` - Discovery feed (default logged-in screen)
+- `story_list` - List of all stories
+- `story_map` - Map view of stories
+- `add_story` - Create new story
+- `favorites` - User's favorite stories
+- `profile` - User profile
+- `search` - Search stories
+- `settings` - App settings
+- `dictionary` - Nahuatl-Spanish dictionary
+
+### Dynamic Routes (with Parameters)
+
+Routes that require parameters use helper functions:
+
+```kotlin
+object StoryDetail : Screen("story_detail/{storyId}") {
+    fun createRoute(storyId: String) = "story_detail/$storyId"
+}
+
+object EditStory : Screen("edit_story/{storyId}") {
+    fun createRoute(storyId: String) = "edit_story/$storyId"
+}
+```
+
+Usage:
+
+```kotlin
+// Navigate to story detail
+navController.navigate(Screen.StoryDetail.createRoute("story123"))
+
+// Navigate to edit story
+navController.navigate(Screen.EditStory.createRoute("story123"))
+```
+
+## Navigation Examples
+
+### Simple Navigation
+
+```kotlin
+Button(onClick = { navController.navigate(Screen.AddStory.route) }) {
+    Text("Add Story")
+}
+```
+
+### Navigation with Pop
+
+Remove previous screen from back stack:
+
+```kotlin
+navController.navigate(Screen.StoryList.route) {
+    popUpTo(Screen.Welcome.route) { inclusive = true }
+}
+```
+
+This is used after login to prevent going back to the welcome screen.
+
+### Navigation with Back Stack Clearing
+
+Clear entire back stack (used after login/logout):
+
+```kotlin
+navController.navigate(Screen.StoryList.route) {
+    popUpTo(0) { inclusive = true }
+}
+```
+
+See `ui/navigation/NavGraph.kt:74` for login navigation example.
+
+### Bottom Navigation
+
+Bottom nav uses state preservation:
+
+```kotlin
+navController.navigate(item.route) {
+    popUpTo(navController.graph.findStartDestination().id) {
+        saveState = true
+    }
+    launchSingleTop = true
+    restoreState = true
+}
+```
+
+See `ui/MainContainer.kt:98` for bottom navigation implementation.
+
+### Back Navigation
+
+```kotlin
+Button(onClick = { navController.popBackStack() }) {
+    Text("Back")
+}
+```
+
+## Route with Arguments
+
+### Defining Route Arguments
+
+```kotlin
+composable(
+    route = Screen.StoryDetail.route,
+    arguments = listOf(
+        navArgument("storyId") { type = NavType.StringType }
+    )
+) { backStackEntry ->
+    val storyId = backStackEntry.arguments?.getString("storyId") ?: ""
+    // Use storyId to load data
+}
+```
+
+See `ui/navigation/NavGraph.kt:187` for StoryDetail route with arguments.
+
+### Loading Data from Arguments
+
+Fetch story data using the ID from navigation arguments:
+
+```kotlin
+val storyId = backStackEntry.arguments?.getString("storyId") ?: ""
+val stories by storyViewModel.stories.collectAsState()
+val story = stories.find { it.id == storyId }
+
+LaunchedEffect(storyId) {
+    if (story == null) {
+        storyViewModel.loadStoryById(storyId)
+    }
+}
+
+val selectedStory by storyViewModel.selectedStory.collectAsState()
+val displayStory = story ?: selectedStory
+
+if (displayStory != null) {
+    StoryDetailScreen(
+        story = displayStory,
+        onNavigateBack = { navController.popBackStack() }
+    )
+} else {
+    StoryDetailLoadingScreen(
+        onNavigateBack = { navController.popBackStack() }
+    )
+}
+```
+
+See `ui/navigation/NavGraph.kt:193` for data loading from arguments.
+
+## Start Destination
+
+The start destination is determined by authentication state:
+
+```kotlin
+val startDestination = if (authViewModel.isLoggedIn) {
+    Screen.Discover.route
+} else {
+    Screen.Welcome.route
+}
+```
+
+See `ui/MainContainer.kt:44` for start destination logic.
+
+- **Not logged in**: Start at `Welcome` screen
+- **Logged in**: Start at `Discover` screen
+
+## ViewModel Sharing
+
+ViewModels can be shared across navigation destinations:
+
+```kotlin
+val storyViewModel: StoryViewModel = hiltViewModel()
+val favoritesViewModel: FavoritesViewModel = hiltViewModel()
+
+NavHost(navController, startDestination) {
+    composable(Screen.StoryList.route) {
+        StoryListScreen(viewModel = storyViewModel, /* ... */)
+    }
+    
+    composable(Screen.StoryDetail.route) { backStackEntry ->
+        val story = /* ... */
+        StoryDetailScreen(
+            story = story,
+            favoritesViewModel = favoritesViewModel
+        )
+    }
+}
+```
+
+See `ui/navigation/NavGraph.kt:54` for shared ViewModels.
+
+## Navigation Flow Examples
+
+### Authentication Flow
+
+1. User opens app → `Welcome` screen
+2. User taps "Continue" → Navigate to `Login`
+3. User taps "Sign Up" → Navigate to `SignUp`
+4. After successful login → Navigate to `StoryList` (clear back stack)
+
+### Story Browsing Flow
+
+1. User at `StoryList`
+2. Taps story card → Navigate to `StoryDetail` with story ID
+3. Taps "Edit" (if author) → Navigate to `EditStory` with story ID
+4. Taps back → Pop back to `StoryDetail`
+5. Taps back again → Pop back to `StoryList`
+
+### Bottom Navigation Flow
+
+1. User at `Discover` screen
+2. Taps "Mapa" in bottom nav → Navigate to `StoryMap` (save state)
+3. Taps "Favoritos" → Navigate to `Favorites` (save state)
+4. Taps "Explorar" again → Restore `Discover` state
+
+## Deep Linking
+
+The navigation system supports deep links for:
+- Story detail pages
+- User profiles
+- Specific screens from notifications
+
+<Note>
+Deep link configuration would be added to the `NavGraph` composable with `deepLinks` parameter in the `composable()` function.
+</Note>
